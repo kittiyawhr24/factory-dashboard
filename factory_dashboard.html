@@ -713,7 +713,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
         </div>
         <div class="card">
           <div class="card-title">ยอดเป้าหมายปัจจุบัน</div>
-          <div style="font-size:28px;font-weight:600;font-family:var(--mono);color:#a78bfa" id="forecast-amount-display">—</div>
+          <div style="font-size:28px;font-weight:600;font-family:var(--mono);color:#a78bfa" id="ยอดเป้าหมาย-amount-display">—</div>
           <div style="font-size:11px;color:var(--muted);margin-top:4px">บาท / เดือน</div>
           <div style="font-size:11px;color:var(--muted);margin-top:12px">ผู้จัดการสามารถอัปเดต ยอดเป้าหมาย ได้ที่แท็บ "ยอดเป้าหมาย"</div>
         </div>
@@ -865,27 +865,27 @@ tr:hover td{background:rgba(255,255,255,.02)}
       </div>
     </div>
 
-    <!-- FORECAST (manager only) -->
-    <div id="page-forecast" class="page">
+    <!-- ยอดเป้าหมาย (manager only) -->
+    <div id="page-ยอดเป้าหมาย" class="page">
       <div class="page-title">ตั้งค่า ยอดเป้าหมาย</div>
       <div class="card">
         <div class="card-title">กรอกยอดเป้าหมายรายเดือน (เฉพาะผู้จัดการ)</div>
         <div class="form-grid">
           <div class="fg">
             <label>เดือน</label>
-            <input id="forecast-month" type="month" value="">
+            <input id="ยอดเป้าหมาย-month" type="month" value="">
           </div>
           <div class="fg">
             <label>ยอดเป้าหมาย (บาท)</label>
-            <input id="forecast-input" type="number" placeholder="2000000" min="0">
+            <input id="ยอดเป้าหมาย-input" type="number" placeholder="2000000" min="0">
           </div>
         </div>
         <button class="btn-submit" onclick="saveยอดเป้าหมาย()">บันทึกยอดเป้าหมาย</button>
       </div>
       <div class="card">
         <div class="card-title">ยอดเป้าหมาย เดือนปัจจุบัน</div>
-        <div style="font-size:32px;font-weight:600;font-family:var(--mono);color:#a78bfa" id="forecast-amount-display">—</div>
-        <div style="font-size:11px;color:var(--muted);margin-top:6px">เป้า ค่าแรง OT ไม่เกิน 5% = <span id="forecast-5pct">—</span> บาท</div>
+        <div style="font-size:32px;font-weight:600;font-family:var(--mono);color:#a78bfa" id="ยอดเป้าหมาย-amount-display">—</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:6px">เป้า ค่าแรง OT ไม่เกิน 5% = <span id="ยอดเป้าหมาย-5pct">—</span> บาท</div>
       </div>
     </div>
 
