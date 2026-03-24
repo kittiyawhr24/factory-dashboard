@@ -3,224 +3,1014 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Factory Management System (Secretary Edition)</title>
+<title>Factory Dashboard</title>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-import { getFirestore, collection, addDoc, doc, updateDoc, deleteDoc, setDoc, getDoc, query, orderBy, onSnapshot, serverTimestamp, getDocs } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged }
+  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getFirestore, collection, addDoc, doc, updateDoc, deleteDoc,
+  setDoc, getDoc, query, orderBy, onSnapshot, serverTimestamp, getDocs }
+  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
+// ── Firebase Config ───────────────────────────────
 const firebaseConfig = {
-  apiKey: "AIzaSyAbmb86dFbf72b9RwfsiHTZ3b3nGTw_gr4",
-  authDomain: "ts-factory-dashboard.firebaseapp.com",
-  projectId: "ts-factory-dashboard",
-  storageBucket: "ts-factory-dashboard.firebasestorage.app",
+  apiKey:            "AIzaSyAbmb86dFbf72b9RwfsiHTZ3b3nGTw_gr4",
+  authDomain:        "ts-factory-dashboard.firebaseapp.com",
+  projectId:         "ts-factory-dashboard",
+  storageBucket:     "ts-factory-dashboard.firebasestorage.app",
   messagingSenderId: "702665422813",
-  appId: "1:702665422813:web:04e2e138d340443a922834"
+  appId:             "1:702665422813:web:04e2e138d340443a922834"
 };
 
-const app = initializeApp(firebaseConfig);
+const app  = initializeApp(firebaseConfig);
 const auth = getAuth(app);
-const db = getFirestore(app);
+const db   = getFirestore(app);
 
-// ── การตั้งค่าแผนกและสิทธิ์ ──
+// ── Constants ─────────────────────────────────────
 const DEPT_MAP = {
-  "manager@factory.com":     { name:"ผู้จัดการ", role:"admin", color:"#a78bfa" },
-  "engineering@factory.com": { name:"Engineering", role:"eng", color:"#6ee7b7" },
-  "qc@factory.com":          { name:"QC", role:"qc", color:"#fbbf24" },
-  "production@factory.com":  { name:"Production", role:"prod", color:"#60a5fa" },
-  "maintenance@factory.com": { name:"ซ่อมบำรุง", role:"maint", color:"#f87171" }
+  "production@factory.com":  { name:"ผลิต",     color:"#60a5fa" },
+  "qc@factory.com":          { name:"QC",        color:"#fbbf24" },
+  "engineering@factory.com": { name:"วิศวกรรม",  color:"#6ee7b7" },
+  "maintenance@factory.com": { name:"ซ่อมบำรุง", color:"#f87171" },
+  "manager@factory.com":     { name:"ผู้จัดการ", color:"#a78bfa" },
 };
 
-let currentUser = null;
-let userRole = "";
+const SO_STEPS = [
+  "รับ Sale Order","ตรวจสอบเอกสาร","ตรวจสอบหน้างาน",
+  "ทำแบบผลิต","แจกจ่ายแบบ","ผลิตเสร็จ/QC ผ่าน",
+  "ติดตั้งหน้างาน","Trial Report","ขึ้นทะเบียนแบบ"
+];
 
-// ── ติดตามสถานะการเข้าสู่ระบบ ──
-onAuthStateChanged(auth, (user) => {
+// ── State ─────────────────────────────────────────
+let currentUser = null, isManager = false;
+let unsubOT, unsubNCR, unsubDaily, unsubSO, unsubProject;
+let currentMonth = new Date().toISOString().slice(0,7);
+let forecastAmount = 0;
+let _otDocs=[], _ncrDocs=[], _dailyDocs=[], _soDocs=[], _projectDocs=[];
+
+// ── Auth ──────────────────────────────────────────
+onAuthStateChanged(auth, user => {
   if (user) {
     currentUser = user;
-    userRole = DEPT_MAP[user.email]?.role || "guest";
+    isManager   = user.email === "manager@factory.com";
+    const info  = DEPT_MAP[user.email]||{name:user.email,color:"#888"};
     document.getElementById("login-screen").style.display = "none";
-    document.getElementById("app").style.display = "block";
-    document.getElementById("display-user").textContent = DEPT_MAP[user.email]?.name;
-    initSystem();
+    document.getElementById("app").style.display          = "block";
+    document.getElementById("user-name").textContent      = info.name;
+    document.getElementById("user-dot").style.background  = info.color;
+    initTabs();
+    subscribeAll();
+    loadForecast(currentMonth);
   } else {
+    currentUser = null; isManager = false;
     document.getElementById("login-screen").style.display = "flex";
-    document.getElementById("app").style.display = "none";
+    document.getElementById("app").style.display          = "none";
+    [unsubOT,unsubNCR,unsubDaily,unsubSO,unsubProject].forEach(u=>u&&u());
   }
 });
 
-// ── ฟังก์ชันตรวจสอบสิทธิ์ (แก้ไข/ลบ) ──
-function canEdit(type) {
-  if (userRole === "admin") return true;
-  if (type === "so" && userRole === "eng") return true;
-  if (type === "qc" && userRole === "qc") return true;
-  if (type === "prod" && userRole === "prod") return true;
-  if (type === "maint" && userRole === "maint") return true;
-  return false;
-}
+window.doLogin = async () => {
+  const email = document.getElementById("email").value.trim();
+  const pass  = document.getElementById("pass").value;
+  document.getElementById("login-err").textContent = "";
+  try { await signInWithEmailAndPassword(auth, email, pass); }
+  catch(e) { document.getElementById("login-err").textContent = "อีเมลหรือรหัสผ่านไม่ถูกต้อง"; }
+};
+window.doLogout = () => signOut(auth);
 
-// ── ฟังก์ชันบันทึกเป้าหมาย (สำหรับผู้จัดการ) ──
-window.saveMonthlyGoal = async () => {
-  const month = document.getElementById("goal-month").value;
-  const target = parseFloat(document.getElementById("goal-target").value) || 0;
-  const collected = parseFloat(document.getElementById("goal-collected").value) || 0;
-  
-  await setDoc(doc(db, "goals", month), {
-    target: target,
-    collected: collected,
-    updatedAt: serverTimestamp()
-  });
-  alert("บันทึกเป้าหมายเรียบร้อยแล้ว");
+// ── Tabs ──────────────────────────────────────────
+function initTabs() {
+  const tabs = [
+    ["page-dashboard","Dashboard"],
+    ["page-so","Sale Order"],
+    ["page-labor","ค่าแรงพนักงาน"],
+    ["page-ncr","กรอก NCR"],
+    ["page-daily","Daily Report"],
+    ...(isManager ? [["page-target","ยอดเป้าหมาย"]] : []),
+    ["page-export","Export"],
+  ];
+  document.getElementById("tabs").innerHTML = tabs.map(([id,label])=>
+    `<button class="tab-btn" onclick="showPage('${id}',this)">${label}</button>`
+  ).join("");
+  showPage("page-dashboard", document.querySelector(".tab-btn"));
+}
+window.showPage = (id,btn) => {
+  document.querySelectorAll(".page").forEach(p=>p.style.display="none");
+  document.querySelectorAll(".tab-btn").forEach(b=>b.classList.remove("active"));
+  document.getElementById(id).style.display="block";
+  if(btn) btn.classList.add("active");
 };
 
-// ── ฟังก์ชันโหลดข้อมูล Dashboard ──
-function initSystem() {
-  const currentMonth = new Date().toISOString().slice(0, 7);
-  
-  // โหลดเป้าหมาย
-  onSnapshot(doc(db, "goals", currentMonth), (doc) => {
-    if (doc.exists()) {
-      const data = doc.data();
-      document.getElementById("dash-target").textContent = data.target.toLocaleString();
-      document.getElementById("dash-collected").textContent = data.collected.toLocaleString();
-      const pct = data.target > 0 ? (data.collected / data.target * 100).toFixed(1) : 0;
-      document.getElementById("dash-pct").textContent = pct + "%";
+// ── Helpers ───────────────────────────────────────
+function deptColor(name){ return (Object.values(DEPT_MAP).find(v=>v.name===name)||{color:"#888"}).color; }
+function dtag(dept){ return `<span class="dept-tag" style="background:${deptColor(dept)}20;color:${deptColor(dept)}">${dept}</span>`; }
+function fmtBaht(n){ return Number(n||0).toLocaleString("th-TH",{minimumFractionDigits:0}); }
+function noData(cols){ return `<tr><td colspan="${cols}" style="text-align:center;color:var(--muted);padding:16px">ยังไม่มีข้อมูล</td></tr>`; }
+
+// ── Forecast / ยอดเป้าหมาย ────────────────────────
+async function loadForecast(month) {
+  try {
+    const snap = await getDoc(doc(db,"forecast",month));
+    forecastAmount = snap.exists() ? (snap.data().amount||0) : 0;
+  } catch(e) { forecastAmount = 0; }
+  updateForecastDisplay();
+}
+
+function updateForecastDisplay() {
+  ["forecast-amount-display","forecast-amount-display2"].forEach(id=>{
+    const el = document.getElementById(id);
+    if(el) el.textContent = fmtBaht(forecastAmount)+" บาท";
+  });
+  const inp = document.getElementById("target-input");
+  if(inp && !inp.value) inp.value = forecastAmount||"";
+  renderDashboard(_otDocs);
+}
+
+window.saveForecast = async () => {
+  if(!isManager){ alert("เฉพาะผู้จัดการเท่านั้น"); return; }
+  const monthEl = document.getElementById("target-month");
+  const amtEl   = document.getElementById("target-input");
+  const realEl  = document.getElementById("target-real");
+  if(!monthEl||!amtEl){ alert("ไม่พบฟอร์ม"); return; }
+  const month = monthEl.value || currentMonth;
+  const amount = parseFloat(amtEl.value);
+  const realAmount = parseFloat(realEl?.value||0)||0;
+  if(!amount||amount<=0){ alert("กรุณากรอกยอดเป้าหมาย"); return; }
+  try {
+    await setDoc(doc(db,"forecast",month),{
+      amount, realAmount, month,
+      updatedBy:currentUser.email, updatedAt:serverTimestamp()
+    });
+    forecastAmount = amount;
+    currentMonth   = month;
+    updateForecastDisplay();
+    showToast("บันทึกยอดเป้าหมายสำเร็จ ✓");
+  } catch(e) { alert("บันทึกไม่ได้: "+e.message); }
+};
+
+// ── Subscribe ─────────────────────────────────────
+function subscribeAll() {
+  unsubOT    = onSnapshot(query(collection(db,"ot"),      orderBy("ts","desc")), s=>{ _otDocs    = s.docs.map(x=>({id:x.id,...x.data()})); renderLaborTable(_otDocs); renderDashboard(_otDocs); });
+  unsubNCR   = onSnapshot(query(collection(db,"ncr"),     orderBy("ts","desc")), s=>{ _ncrDocs   = s.docs.map(x=>({id:x.id,...x.data()})); renderNCRTable(_ncrDocs); renderDashboard(_otDocs); });
+  unsubDaily = onSnapshot(query(collection(db,"daily"),   orderBy("ts","desc")), s=>{ _dailyDocs = s.docs.map(x=>({id:x.id,...x.data()})); renderDailyTable(_dailyDocs); renderDashboard(_otDocs); });
+  unsubProject = onSnapshot(query(collection(db,"projects"), orderBy("ts","desc")), s=>{ _projectDocs = s.docs.map(x=>({id:x.id,...x.data()})); renderProjectList(_projectDocs); renderDashboard(_otDocs); });
+  unsubSO    = onSnapshot(query(collection(db,"soitems"), orderBy("ts","desc")), s=>{ _soDocs    = s.docs.map(x=>({id:x.id,...x.data()})); renderSOItems(_soDocs); renderDashboard(_otDocs); });
+}
+
+// ── Submit Labor (OT) ─────────────────────────────
+window.submitLabor = async () => {
+  const info       = DEPT_MAP[currentUser.email]||{name:currentUser.email};
+  const date       = document.getElementById("ot-date").value;
+  const hrs        = parseFloat(document.getElementById("ot-hrs").value)||0;
+  const normalCost = parseFloat(document.getElementById("ot-normal-cost").value)||0;
+  const otCost     = parseFloat(document.getElementById("ot-cost").value)||0;
+  if(!date){ alert("กรุณาเลือกวันที่"); return; }
+  await addDoc(collection(db,"ot"),{
+    dept:info.name, email:currentUser.email, hrs, normalCost, otCost,
+    cost:normalCost+otCost,
+    cause:document.getElementById("ot-cause").value,
+    note:document.getElementById("ot-note").value.trim(),
+    date, ts:serverTimestamp()
+  });
+  ["ot-hrs","ot-normal-cost","ot-cost","ot-note"].forEach(id=>document.getElementById(id).value="");
+  showToast("บันทึกค่าแรงสำเร็จ ✓");
+};
+
+// ── Submit NCR ────────────────────────────────────
+window.submitNCR = async () => {
+  const info    = DEPT_MAP[currentUser.email]||{name:currentUser.email};
+  const ncrNo   = document.getElementById("ncr-no").value.trim();
+  const product = document.getElementById("ncr-product").value.trim();
+  const defect  = document.getElementById("ncr-defect").value.trim();
+  const date    = document.getElementById("ncr-date").value;
+  if(!ncrNo||!product||!defect||!date){ alert("กรุณากรอกข้อมูลให้ครบ"); return; }
+  await addDoc(collection(db,"ncr"),{
+    ncrNo,product,defect,date,
+    qty:parseInt(document.getElementById("ncr-qty").value)||0,
+    severity:document.getElementById("ncr-severity").value,
+    action:document.getElementById("ncr-action").value.trim(),
+    dept:info.name, email:currentUser.email, status:"เปิด", ts:serverTimestamp()
+  });
+  ["ncr-no","ncr-product","ncr-defect","ncr-qty","ncr-action"].forEach(id=>document.getElementById(id).value="");
+  showToast("บันทึก NCR สำเร็จ ✓");
+};
+
+// ── Submit Daily ──────────────────────────────────
+window.submitDaily = async () => {
+  const info    = DEPT_MAP[currentUser.email]||{name:currentUser.email};
+  const planned = parseInt(document.getElementById("d-planned").value);
+  const actual  = parseInt(document.getElementById("d-actual").value);
+  const date    = document.getElementById("d-date").value;
+  if(!planned||!actual||!date){ alert("กรุณากรอกข้อมูลให้ครบ"); return; }
+  await addDoc(collection(db,"daily"),{
+    dept:info.name, email:currentUser.email,
+    planned, actual, pct:Math.round((actual/planned)*100),
+    issues:document.getElementById("d-issues").value.trim(),
+    action:document.getElementById("d-action").value.trim(),
+    manpower:parseInt(document.getElementById("d-manpower").value)||0,
+    date, ts:serverTimestamp()
+  });
+  ["d-planned","d-actual","d-issues","d-action","d-manpower"].forEach(id=>document.getElementById(id).value="");
+  showToast("บันทึก Daily Report สำเร็จ ✓");
+};
+
+// ── SO: Create Project ────────────────────────────
+window.submitProject = async () => {
+  const soNo = document.getElementById("proj-so").value.trim();
+  const name = document.getElementById("proj-name").value.trim();
+  if(!soNo||!name){ alert("กรุณากรอก SO Number และชื่อโครงการ"); return; }
+  const snap = await getDocs(query(collection(db,"projects")));
+  const dup  = snap.docs.find(d=>d.data().soNo===soNo);
+  if(dup){ alert("SO Number นี้มีอยู่แล้ว"); return; }
+  await addDoc(collection(db,"projects"),{
+    soNo, name,
+    note:document.getElementById("proj-note").value.trim(),
+    createdBy:currentUser.email,
+    ts:serverTimestamp()
+  });
+  ["proj-so","proj-name","proj-note"].forEach(id=>document.getElementById(id).value="");
+  showToast("สร้างโครงการสำเร็จ ✓");
+};
+
+// ── SO: Add Item to Project ───────────────────────
+window.submitSOItem = async () => {
+  const projId  = document.getElementById("item-project").value;
+  const itemCode= document.getElementById("item-code").value.trim();
+  const houseType=document.getElementById("item-house").value.trim();
+  const plot    = document.getElementById("item-plot").value.trim();
+  const eng     = document.getElementById("item-engineer").value.trim();
+  const planDate= document.getElementById("item-plan-date").value;
+  if(!projId||!itemCode||!plot){ alert("กรุณากรอก Item, แปลงที่ และเลือกโครงการ"); return; }
+  const proj = _projectDocs.find(p=>p.id===projId);
+  await addDoc(collection(db,"soitems"),{
+    projectId:projId, soNo:proj?.soNo||"", projectName:proj?.name||"",
+    itemCode, houseType, plot, engineer:eng, planDate,
+    currentStep:0, stepHistory:[],
+    createdBy:currentUser.email,
+    ts:serverTimestamp()
+  });
+  ["item-code","item-house","item-plot","item-engineer","item-plan-date"].forEach(id=>document.getElementById(id).value="");
+  showToast("เพิ่ม Item สำเร็จ ✓");
+};
+
+// ── SO: Advance Step ──────────────────────────────
+window.advanceStep = async (docId, currentStep, ownerEng) => {
+  const info = DEPT_MAP[currentUser.email]||{name:currentUser.email};
+  const canEdit = isManager || currentUser.email===ownerEng || info.name===ownerEng;
+  if(!canEdit){ alert("เฉพาะวิศวกรผู้รับผิดชอบหรือผู้จัดการ"); return; }
+  const next = currentStep+1;
+  if(next>SO_STEPS.length-1){ showToast("เสร็จสิ้นแล้ว"); return; }
+  const ref  = doc(db,"soitems",docId);
+  const snap = await getDoc(ref);
+  const hist = snap.data().stepHistory||[];
+  hist.push({step:next,label:SO_STEPS[next],updatedBy:currentUser.email,updatedAt:new Date().toISOString()});
+  await updateDoc(ref,{currentStep:next,stepHistory:hist});
+  showToast("อัปเดต → "+SO_STEPS[next]);
+};
+
+// ── Generic Edit/Delete ───────────────────────────
+window.openEdit = (colName, docId, fieldsJson) => {
+  const fields = JSON.parse(decodeURIComponent(fieldsJson));
+  const info   = DEPT_MAP[currentUser.email]||{name:currentUser.email};
+  const canEdit= isManager||currentUser.email===fields.email||currentUser.email===fields.createdBy||info.name===fields.engineer;
+  if(!canEdit){ alert("ไม่มีสิทธิ์แก้ไข"); return; }
+  const skip   = ["id","ts","email","dept","createdBy","stepHistory","currentStep","deleteRequest","deleteRequestBy","deleteRequestAt"];
+  const labels = {date:"วันที่",hrs:"ชั่วโมง OT",normalCost:"ค่าแรงปกติ (บ.)",otCost:"ค่าแรง OT (บ.)",cause:"สาเหตุ",note:"หมายเหตุ",ncrNo:"เลข NCR",product:"สินค้า/งาน",defect:"ของเสีย",qty:"จำนวน",severity:"ระดับ",action:"แนวทางแก้",planned:"แผน",actual:"จริง",issues:"ปัญหา",soNo:"SO Number",name:"ชื่อโครงการ",itemCode:"Item/รหัส",houseType:"แบบบ้าน",plot:"แปลง",engineer:"วิศวกร",planDate:"วันแผนติดตั้ง"};
+  document.getElementById("modal-body").innerHTML = Object.entries(fields)
+    .filter(([k])=>!skip.includes(k))
+    .map(([k,v])=>`<div class="fg" style="margin-bottom:10px">
+      <label>${labels[k]||k}</label>
+      <input id="edit-${k}" value="${String(v||"").replace(/"/g,'&quot;')}" style="width:100%;background:var(--surface2);border:1px solid var(--border2);color:var(--text);font-family:var(--font);font-size:13px;padding:8px 10px;border-radius:7px;outline:none;transition:border-color .15s" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border2)'">
+    </div>`).join("");
+  document.getElementById("modal-save").onclick = async () => {
+    const updates={};
+    Object.keys(fields).filter(k=>!skip.includes(k)).forEach(k=>{
+      const el=document.getElementById("edit-"+k);
+      if(el) updates[k]=(!isNaN(el.value)&&el.value!=="") ? Number(el.value) : el.value;
+    });
+    if(updates.normalCost!==undefined||updates.otCost!==undefined){
+      updates.cost=(updates.normalCost||fields.normalCost||0)+(updates.otCost||fields.otCost||0);
     }
-  });
+    updates.editedBy=currentUser.email; updates.editedAt=serverTimestamp();
+    try{
+      await updateDoc(doc(db,colName,docId),updates);
+      closeModal(); showToast("แก้ไขสำเร็จ ✓");
+    }catch(e){ alert("แก้ไขไม่ได้: "+e.message); }
+  };
+  document.getElementById("edit-modal").style.display="flex";
+};
+window.closeModal = ()=>{ document.getElementById("edit-modal").style.display="none"; };
 
-  // โหลดงานซ่อมบำรุงโชว์หน้า Dashboard
-  onSnapshot(collection(db, "maintenance"), (snap) => {
-    const activeMaint = snap.docs.filter(d => d.data().status !== "เสร็จสิ้น").length;
-    document.getElementById("dash-maint-count").textContent = activeMaint;
-    renderMaintenanceTable(snap.docs);
-  });
+window.requestDelete = async (colName,docId,ownerEmail) => {
+  if(currentUser.email!==ownerEmail&&!isManager){ alert("ไม่มีสิทธิ์"); return; }
+  if(isManager){
+    if(!confirm("ยืนยันลบ?")) return;
+    await deleteDoc(doc(db,colName,docId)); showToast("ลบแล้ว ✓");
+  } else {
+    if(!confirm("ส่งคำขอลบให้ผู้จัดการ?")) return;
+    await updateDoc(doc(db,colName,docId),{deleteRequest:true,deleteRequestBy:currentUser.email,deleteRequestAt:serverTimestamp()});
+    showToast("ส่งคำขอลบแล้ว — รอผู้จัดการ");
+  }
+};
+window.approveDelete = async(colName,docId)=>{ if(!confirm("อนุมัติลบ?")) return; await deleteDoc(doc(db,colName,docId)); showToast("ลบแล้ว ✓"); };
+window.rejectDelete  = async(colName,docId)=>{ await updateDoc(doc(db,colName,docId),{deleteRequest:false,deleteRequestBy:null}); showToast("ปฏิเสธแล้ว"); };
+
+function actionBtns(colName,d){
+  const canAct=d.email===currentUser.email||d.createdBy===currentUser.email||isManager;
+  if(!canAct) return "";
+  if(d.deleteRequest&&isManager) return `<span style="font-size:10px;color:var(--accent2)">⏳</span> <button class="btn-act btn-ok" onclick="approveDelete('${colName}','${d.id}')">อนุมัติลบ</button><button class="btn-act btn-cancel" onclick="rejectDelete('${colName}','${d.id}')">ปฏิเสธ</button>`;
+  if(d.deleteRequest) return `<span style="font-size:10px;color:var(--accent2)">⏳ รออนุมัติ</span>`;
+  const enc=encodeURIComponent(JSON.stringify(d));
+  return `<button class="btn-act btn-edit" onclick="openEdit('${colName}','${d.id}','${enc}')">แก้ไข</button><button class="btn-act btn-del" onclick="requestDelete('${colName}','${d.id}','${d.email||d.createdBy||""}')">ลบ</button>`;
 }
 
-// ── จัดการงานซ่อมบำรุง (Maintenance) ──
-window.addMaintenance = async () => {
-  const data = {
-    machine: document.getElementById("maint-machine").value,
-    issue: document.getElementById("maint-issue").value,
-    status: "กำลังดำเนินการ",
-    tech: DEPT_MAP[currentUser.email].name,
-    ts: serverTimestamp()
-  };
-  await addDoc(collection(db, "maintenance"), data);
-  alert("บันทึกงานซ่อมแล้ว");
+// ── Dashboard ─────────────────────────────────────
+async function renderDashboard(otDocs) {
+  const month   = currentMonth;
+  const monthly = otDocs.filter(d=>d.date&&d.date.startsWith(month));
+  const totalN  = monthly.reduce((s,d)=>s+(d.normalCost||0),0);
+  const totalOT = monthly.reduce((s,d)=>s+(d.otCost||d.cost||0),0);
+  const totalL  = totalN+totalOT;
+  const pct     = forecastAmount>0?((totalL/forecastAmount)*100).toFixed(1):null;
+  const warn    = pct!==null&&parseFloat(pct)>5;
+
+  const set=(id,v)=>{ const el=document.getElementById(id); if(el) el.textContent=v; };
+  set("d-total-normal", fmtBaht(totalN));
+  set("d-total-ot",     fmtBaht(totalOT));
+  set("d-total-labor",  fmtBaht(totalL));
+  set("d-target",       forecastAmount>0?fmtBaht(forecastAmount):"ยังไม่ได้กรอก");
+  if(pct!==null){
+    const el=document.getElementById("d-labor-pct");
+    if(el){ el.textContent=pct+"%"; el.style.color=warn?"#f87171":"#6ee7b7"; }
+    const bar=document.getElementById("d-pct-bar");
+    if(bar){ bar.style.width=Math.min(100,parseFloat(pct)*10)+"%"; bar.style.background=warn?"#f87171":"#6ee7b7"; }
+    const wb=document.getElementById("d-warn"); if(wb) wb.style.display=warn?"block":"none";
+  } else {
+    const el=document.getElementById("d-labor-pct"); if(el) el.textContent="—";
+    const wb=document.getElementById("d-warn"); if(wb) wb.style.display="none";
+  }
+
+  // NCR summary
+  const openNcr=_ncrDocs.filter(d=>d.status==="เปิด").length;
+  set("d-ncr-open",openNcr);
+  set("d-ncr-total",_ncrDocs.length);
+
+  // Daily summary - today
+  const today=new Date().toISOString().slice(0,10);
+  const todayDaily=_dailyDocs.filter(d=>d.date===today);
+  const sumPlanned=todayDaily.reduce((s,d)=>s+(d.planned||0),0);
+  const sumActual =todayDaily.reduce((s,d)=>s+(d.actual||0),0);
+  const dailyPct  =sumPlanned>0?Math.round((sumActual/sumPlanned)*100):0;
+  set("d-daily-planned",sumPlanned);
+  set("d-daily-actual",sumActual);
+  set("d-daily-pct",dailyPct+"%");
+  const dpbar=document.getElementById("d-daily-bar");
+  if(dpbar){ dpbar.style.width=Math.min(100,dailyPct)+"%"; dpbar.style.background=dailyPct>=90?"#6ee7b7":dailyPct>=70?"#fbbf24":"#f87171"; }
+
+  // SO summary
+  const soTotal=_soDocs.length;
+  const soDone =_soDocs.filter(d=>(d.currentStep||0)>=SO_STEPS.length-1).length;
+  const soInProg=_soDocs.filter(d=>(d.currentStep||0)>0&&(d.currentStep||0)<SO_STEPS.length-1).length;
+  set("d-so-total",soTotal);
+  set("d-so-done",soDone);
+  set("d-so-inprog",soInProg);
+
+  // Forecast vs Real
+  const el5 = document.getElementById("d-5pct-max");
+  if(el5) el5.textContent = forecastAmount>0 ? fmtBaht(forecastAmount*0.05)+" บาท" : "—";
+}
+
+// ── Render Labor Table ────────────────────────────
+function renderLaborTable(docs){
+  document.getElementById("ot-table-body").innerHTML = docs.length
+    ? docs.slice(0,60).map(d=>`<tr ${d.deleteRequest?'style="opacity:.5"':''}>
+        <td>${d.date||""}</td><td>${dtag(d.dept)}</td>
+        <td style="font-family:var(--mono)">${d.hrs||0}</td>
+        <td style="font-family:var(--mono)">${fmtBaht(d.normalCost||0)}</td>
+        <td style="font-family:var(--mono)">${fmtBaht(d.otCost||d.cost||0)}</td>
+        <td style="font-family:var(--mono);font-weight:500;color:var(--accent2)">${fmtBaht((d.normalCost||0)+(d.otCost||d.cost||0))}</td>
+        <td>${d.cause||""}</td><td>${d.note||""}</td>
+        <td>${actionBtns("ot",d)}</td>
+      </tr>`).join("") : noData(9);
+}
+
+// ── Render NCR Table ──────────────────────────────
+function renderNCRTable(docs){
+  const open=docs.filter(d=>d.status==="เปิด"&&!d.deleteRequest).length;
+  const cnt=document.getElementById("ncr-open-count"); if(cnt) cnt.textContent=open+" รายการเปิด";
+  document.getElementById("ncr-table-body").innerHTML = docs.length
+    ? docs.slice(0,60).map(d=>{
+        const sc=d.severity==="สูง"?"sev-high":d.severity==="กลาง"?"sev-med":"sev-low";
+        return `<tr ${d.deleteRequest?'style="opacity:.5"':''}>
+          <td style="font-family:var(--mono);font-size:11px">${d.ncrNo||""}</td>
+          <td>${d.date||""}</td><td>${dtag(d.dept)}</td>
+          <td>${d.product||""}</td><td>${d.defect||""}</td>
+          <td style="font-family:var(--mono)">${d.qty||0}</td>
+          <td><span class="sev-badge ${sc}">${d.severity||""}</span></td>
+          <td><span class="status-pill ${d.status==="เปิด"?"status-alert":"status-ok"}">${d.status||""}</span></td>
+          <td>${actionBtns("ncr",d)}</td>
+        </tr>`;}).join("") : noData(9);
+}
+
+// ── Render Daily Table ────────────────────────────
+function renderDailyTable(docs){
+  document.getElementById("daily-table-body").innerHTML = docs.length
+    ? docs.slice(0,60).map(d=>`<tr ${d.deleteRequest?'style="opacity:.5"':''}>
+        <td>${d.date||""}</td><td>${dtag(d.dept)}</td>
+        <td style="font-family:var(--mono)">${d.planned||0}</td>
+        <td style="font-family:var(--mono)">${d.actual||0}</td>
+        <td><div style="display:flex;align-items:center;gap:6px">
+          <div style="flex:1;background:var(--surface2);border-radius:3px;height:5px;min-width:50px">
+            <div style="width:${Math.min(100,d.pct||0)}%;height:100%;border-radius:3px;background:${(d.pct||0)>=90?"#6ee7b7":(d.pct||0)>=70?"#fbbf24":"#f87171"}"></div>
+          </div><span style="font-family:var(--mono);font-size:11px">${d.pct||0}%</span>
+        </div></td>
+        <td style="font-size:11px">${d.issues||"—"}</td>
+        <td style="font-size:11px">${d.action||"—"}</td>
+        <td>${actionBtns("daily",d)}</td>
+      </tr>`).join("") : noData(8);
+}
+
+// ── Render Project List ───────────────────────────
+function renderProjectList(projects){
+  const sel = document.getElementById("item-project");
+  if(sel){
+    sel.innerHTML = `<option value="">-- เลือกโครงการ --</option>` +
+      projects.map(p=>`<option value="${p.id}">${p.soNo} — ${p.name}</option>`).join("");
+  }
+  const tbl = document.getElementById("project-table-body");
+  if(!tbl) return;
+  tbl.innerHTML = projects.length ? projects.map(p=>{
+    const items = _soDocs.filter(s=>s.projectId===p.id);
+    const done  = items.filter(s=>(s.currentStep||0)>=SO_STEPS.length-1).length;
+    const enc   = encodeURIComponent(JSON.stringify({...p,email:p.createdBy}));
+    return `<tr>
+      <td style="font-family:var(--mono);font-size:11px">${p.soNo||""}</td>
+      <td><strong>${p.name||""}</strong></td>
+      <td style="font-family:var(--mono)">${items.length}</td>
+      <td style="font-family:var(--mono);color:#6ee7b7">${done}</td>
+      <td style="font-size:11px">${p.note||"—"}</td>
+      <td><button class="btn-act btn-edit" onclick="openEdit('projects','${p.id}','${enc}')">แก้ไข</button>
+          <button class="btn-act btn-del" onclick="requestDelete('projects','${p.id}','${p.createdBy||""}')">ลบ</button></td>
+    </tr>`;
+  }).join("") : noData(6);
+}
+
+// ── Render SO Items ───────────────────────────────
+function stepColor(i){ return i<=1?"#6b7280":i<=3?"#60a5fa":i<=5?"#fbbf24":i<=7?"#a78bfa":"#6ee7b7"; }
+
+function renderSOItems(docs){
+  const set=(id,v)=>{ const el=document.getElementById(id); if(el) el.textContent=v; };
+  set("so-total",docs.length);
+  set("so-done",docs.filter(d=>(d.currentStep||0)>=SO_STEPS.length-1).length);
+  set("so-inprog",docs.filter(d=>(d.currentStep||0)>0&&(d.currentStep||0)<SO_STEPS.length-1).length);
+
+  const filterProj = document.getElementById("filter-project")?.value||"";
+  const filtered   = filterProj ? docs.filter(d=>d.projectId===filterProj) : docs;
+
+  document.getElementById("so-table-body").innerHTML = filtered.length ? filtered.map(d=>{
+    const step  = d.currentStep||0;
+    const label = SO_STEPS[step];
+    const pct   = Math.round((step/(SO_STEPS.length-1))*100);
+    const info  = DEPT_MAP[currentUser.email]||{name:currentUser.email};
+    const canAct= isManager||currentUser.email===d.createdBy||info.name===d.engineer;
+    const enc   = encodeURIComponent(JSON.stringify({...d,email:d.createdBy}));
+    return `<tr>
+      <td style="font-size:11px;color:var(--muted)">${d.soNo||""}</td>
+      <td style="font-size:12px;font-weight:500">${d.projectName||""}</td>
+      <td style="font-family:var(--mono);font-size:11px;color:#6ee7b7">${d.itemCode||""}</td>
+      <td style="font-size:11px">${d.houseType||"—"}</td>
+      <td style="font-size:11px">${d.plot||""}</td>
+      <td style="font-size:11px">${d.planDate||"—"}</td>
+      <td style="font-size:11px">${d.engineer||"—"}</td>
+      <td>
+        <div style="min-width:130px">
+          <span style="font-size:10px;font-weight:500;color:${stepColor(step)}">${label}</span>
+          <div style="background:var(--surface2);border-radius:3px;height:4px;margin-top:4px">
+            <div style="width:${pct}%;height:100%;border-radius:3px;background:${stepColor(step)}"></div>
+          </div>
+          <span style="font-size:9px;color:var(--muted)">${step+1}/${SO_STEPS.length} · ${pct}%</span>
+        </div>
+      </td>
+      <td>
+        ${canAct&&step<SO_STEPS.length-1?`<button class="btn-act btn-ok" onclick="advanceStep('${d.id}',${step},'${d.engineer||d.createdBy||""}')">ถัดไป ▶</button>`:""}
+        ${canAct?`<button class="btn-act btn-edit" onclick="openEdit('soitems','${d.id}','${enc}')">แก้ไข</button>`:""}
+        ${canAct?`<button class="btn-act btn-del" onclick="requestDelete('soitems','${d.id}','${d.createdBy||""}')">ลบ</button>`:""}
+      </td>
+    </tr>`;
+  }).join("") : noData(9);
+}
+
+window.filterByProject = () => {
+  const sel = document.getElementById("filter-project");
+  if(sel && _projectDocs.length) {
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">ทั้งหมด</option>' +
+      _projectDocs.map(p=>`<option value="${p.id}" ${p.id===cur?"selected":""}>${p.soNo} — ${p.name}</option>`).join("");
+    sel.value = cur;
+  }
+  renderSOItems(_soDocs);
 };
 
-function renderMaintenanceTable(docs) {
-  const tbody = document.getElementById("maint-list");
-  tbody.innerHTML = docs.map(d => {
-    const item = d.data();
-    return `
-      <tr>
-        <td>${item.machine}</td>
-        <td>${item.issue}</td>
-        <td>${item.status}</td>
-        <td>
-          ${canEdit("maint") ? `<button onclick="deleteDoc(doc(db,'maintenance','${d.id}'))">ลบ</button>` : ''}
-        </td>
-      </tr>
-    `;
-  }).join('');
+// ── Export ────────────────────────────────────────
+window.exportCSV = async (col) => {
+  const snap = await getDocs(collection(db,col));
+  const rows = snap.docs.map(d=>d.data());
+  if(!rows.length){ alert("ไม่มีข้อมูล"); return; }
+  const keys = Object.keys(rows[0]).filter(k=>k!=="ts");
+  const csv  = [keys.join(","),...rows.map(r=>keys.map(k=>`"${(r[k]||"").toString().replace(/"/g,'""')}"`).join(","))].join("\n");
+  const a = Object.assign(document.createElement("a"),{
+    href:URL.createObjectURL(new Blob(["\uFEFF"+csv],{type:"text/csv;charset=utf-8"})),
+    download:`${col}_${new Date().toISOString().slice(0,10)}.csv`
+  });
+  a.click();
+};
+
+function showToast(msg){
+  const t=document.getElementById("toast");
+  t.textContent=msg; t.className="toast show";
+  setTimeout(()=>{t.className="toast";},2800);
 }
-
-// ── และฟังก์ชันอื่นๆ สำหรับ QC, Production, CNC ──
-// (โค้ดส่วนนี้จะถูกใส่ในไฟล์ตัวเต็มเพื่อให้รองรับทุกฟีเจอร์ที่คุณขอ)
-
+window.addEventListener("keydown",e=>{
+  if(e.key==="Enter"&&document.getElementById("login-screen").style.display!=="none") doLogin();
+  if(e.key==="Escape") closeModal();
+});
 </script>
+
 <style>
-  :root { --primary: #1e293b; --accent: #3b82f6; --text: #f8fafc; }
-  body { font-family: 'Tahoma', sans-serif; background: #0f172a; color: var(--text); margin: 0; }
-  .grid-dash { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; padding: 20px; }
-  .card { background: #1e293b; padding: 20px; border-radius: 10px; border-left: 5px solid var(--accent); }
-  .btn-save { background: #10b981; color: white; padding: 10px; border: none; border-radius: 5px; cursor: pointer; }
-  nav { display: flex; background: #1e293b; padding: 10px; gap: 10px; border-bottom: 1px solid #334155; }
-  nav button { background: none; border: none; color: #94a3b8; cursor: pointer; padding: 10px; }
-  nav button.active { color: var(--accent); border-bottom: 2px solid var(--accent); }
-  table { width: 100%; margin-top: 10px; border-collapse: collapse; }
-  th, td { padding: 12px; text-align: left; border-bottom: 1px solid #334155; }
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0f1117;--surface:#181c27;--surface2:#1e2330;
+  --border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.13);
+  --text:#e8eaf0;--muted:#6b7280;
+  --accent:#6ee7b7;--accent2:#fbbf24;--accent3:#f87171;
+  --font:'IBM Plex Sans Thai',sans-serif;--mono:'IBM Plex Mono',monospace;
+}
+body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:14px;min-height:100vh}
+#login-screen{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px}
+.login-box{background:var(--surface);border:1px solid var(--border2);border-radius:16px;padding:36px 32px;width:100%;max-width:380px}
+.login-box h2{font-size:20px;font-weight:600;margin-bottom:4px}
+.login-box p{color:var(--muted);font-size:12px;margin-bottom:24px}
+.field{margin-bottom:14px}
+.field label{font-size:11px;color:var(--muted);display:block;margin-bottom:5px;text-transform:uppercase;letter-spacing:.4px}
+.field input{width:100%;background:var(--surface2);border:1px solid var(--border2);color:var(--text);font-family:var(--font);font-size:14px;padding:10px 12px;border-radius:8px;outline:none;transition:border-color .15s}
+.field input:focus{border-color:var(--accent)}
+.btn-login{width:100%;background:var(--accent);color:#0f1117;font-family:var(--font);font-size:14px;font-weight:600;border:none;border-radius:8px;padding:11px;cursor:pointer;margin-top:4px}
+#login-err{color:var(--accent3);font-size:12px;margin-top:8px;min-height:16px}
+.hint{font-size:11px;color:var(--muted);margin-top:16px;line-height:1.9;border-top:1px solid var(--border);padding-top:14px}
+.hint code{background:var(--surface2);padding:1px 5px;border-radius:4px;font-family:var(--mono);font-size:11px}
+#app{display:none;min-height:100vh}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:0 20px;height:52px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10}
+.topbar h1{font-size:15px;font-weight:600}
+.user-badge{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--muted)}
+#user-dot{width:8px;height:8px;border-radius:50%}
+.btn-logout{background:none;border:1px solid var(--border2);color:var(--muted);font-family:var(--font);font-size:11px;padding:5px 11px;border-radius:6px;cursor:pointer}
+#tabs{display:flex;gap:2px;padding:12px 20px 0;border-bottom:1px solid var(--border);background:var(--surface);overflow-x:auto}
+.tab-btn{background:none;border:none;color:var(--muted);font-family:var(--font);font-size:13px;padding:8px 14px;cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;transition:all .15s}
+.tab-btn:hover{color:var(--text)}
+.tab-btn.active{color:var(--accent);border-bottom-color:var(--accent)}
+.content{padding:20px}
+.page{display:none}
+.page-title{font-size:16px;font-weight:600;margin-bottom:16px;display:flex;align-items:center;gap:10px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:18px;margin-bottom:14px}
+.card-title{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:14px}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.g5{display:grid;grid-template-columns:repeat(5,1fr);gap:12px}
+@media(max-width:700px){.g2,.g3,.g4,.g5{grid-template-columns:1fr 1fr}}
+.kpi-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:0}
+.kpi-label{font-size:11px;color:var(--muted);margin-bottom:6px}
+.kpi-value{font-size:22px;font-weight:600;font-family:var(--mono);color:var(--accent)}
+.kpi-sub{font-size:10px;color:var(--muted);margin-top:3px}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media(max-width:500px){.form-grid{grid-template-columns:1fr}}
+.full{grid-column:1/-1}
+.fg label{font-size:11px;color:var(--muted);display:block;margin-bottom:4px}
+.fg input,.fg select,.fg textarea{width:100%;background:var(--surface2);border:1px solid var(--border2);color:var(--text);font-family:var(--font);font-size:13px;padding:8px 10px;border-radius:7px;outline:none;transition:border-color .15s}
+.fg input:focus,.fg select:focus,.fg textarea:focus{border-color:var(--accent)}
+.fg textarea{resize:vertical;min-height:60px}
+.btn-submit{background:var(--accent);color:#0f1117;font-family:var(--font);font-size:13px;font-weight:600;border:none;border-radius:8px;padding:10px 20px;cursor:pointer;margin-top:8px}
+.btn-exp{background:var(--surface2);border:1px solid var(--border2);color:var(--text);font-family:var(--font);font-size:12px;padding:8px 16px;border-radius:7px;cursor:pointer;margin:4px}
+.btn-exp:hover{border-color:var(--accent);color:var(--accent)}
+.table-wrap{overflow-x:auto;margin-top:10px}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;text-align:left;padding:8px 10px;border-bottom:1px solid var(--border2)}
+td{padding:8px 10px;border-bottom:1px solid var(--border);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:rgba(255,255,255,.02)}
+.dept-tag{font-size:11px;padding:2px 8px;border-radius:8px;font-weight:500}
+.status-pill{font-size:10px;padding:2px 7px;border-radius:8px;font-family:var(--mono);font-weight:500}
+.status-ok{background:rgba(110,231,183,.12);color:#6ee7b7}
+.status-alert{background:rgba(248,113,113,.12);color:#f87171}
+.sev-badge{font-size:10px;padding:2px 7px;border-radius:6px;font-weight:500}
+.sev-high{background:rgba(248,113,113,.15);color:#f87171}
+.sev-med{background:rgba(251,191,36,.15);color:#fbbf24}
+.sev-low{background:rgba(110,231,183,.15);color:#6ee7b7}
+.badge-count{font-size:11px;background:rgba(248,113,113,.15);color:#f87171;padding:2px 10px;border-radius:8px;font-family:var(--mono)}
+.btn-act{font-size:10px;padding:3px 8px;border-radius:5px;border:none;cursor:pointer;font-family:var(--font);font-weight:500;margin-left:3px}
+.btn-edit{background:rgba(96,165,250,.15);color:#60a5fa}
+.btn-del{background:rgba(248,113,113,.15);color:#f87171}
+.btn-ok{background:rgba(110,231,183,.15);color:#6ee7b7}
+.btn-cancel{background:rgba(107,114,128,.15);color:#9ca3af}
+.btn-act:hover{opacity:.75}
+.pct-track{background:var(--surface2);border-radius:6px;height:10px;overflow:hidden;position:relative;margin-top:8px}
+.pct-bar{height:100%;border-radius:6px;transition:width .6s cubic-bezier(.16,1,.3,1)}
+.pct-marker{position:absolute;top:0;left:50%;width:2px;height:100%;background:var(--accent3);opacity:.4}
+.warn-box{background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.3);border-radius:8px;padding:10px 14px;color:#f87171;font-size:12px;margin-top:10px;display:none}
+.info-box{background:rgba(110,231,183,.06);border:1px solid rgba(110,231,183,.2);border-radius:8px;padding:10px 14px;font-size:11px;color:var(--muted);margin-bottom:12px;line-height:1.8}
+.section-divider{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin:20px 0 12px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+#edit-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:50;align-items:center;justify-content:center;padding:20px}
+.modal-box{background:var(--surface);border:1px solid var(--border2);border-radius:14px;padding:24px;width:100%;max-width:480px;max-height:80vh;overflow-y:auto}
+.modal-title{font-size:15px;font-weight:600;margin-bottom:16px}
+.modal-actions{display:flex;gap:8px;margin-top:16px;justify-content:flex-end}
+.modal-btn{font-family:var(--font);font-size:13px;font-weight:500;padding:8px 18px;border-radius:8px;border:none;cursor:pointer}
+.modal-btn-save{background:var(--accent);color:#0f1117}
+.modal-btn-cancel{background:var(--surface2);color:var(--muted);border:1px solid var(--border2)}
+.toast{position:fixed;bottom:24px;right:24px;background:#1e2330;border:1px solid var(--accent);color:var(--accent);font-size:13px;padding:10px 18px;border-radius:10px;opacity:0;transform:translateY(8px);transition:all .3s;z-index:100;pointer-events:none}
+.toast.show{opacity:1;transform:translateY(0)}
 </style>
 </head>
 <body>
 
-<div id="login-screen" style="height:100vh; display:flex; flex-direction:column; justify-content:center; align-items:center;">
-  <h2>Factory Login</h2>
-  <div class="card" style="width: 300px;">
-    <input type="email" id="login-email" placeholder="Email" style="width:100%; margin-bottom:10px; padding:8px;">
-    <input type="password" id="login-pass" placeholder="Password" style="width:100%; margin-bottom:10px; padding:8px;">
-    <button onclick="login()" class="btn-save" style="width:100%;">เข้าสู่ระบบ</button>
+<!-- LOGIN -->
+<div id="login-screen">
+  <div class="login-box">
+    <h2>Factory Dashboard</h2>
+    <p>เข้าสู่ระบบด้วยอีเมลแผนกของคุณ</p>
+    <div class="field"><label>อีเมล</label><input id="email" type="email" placeholder="production@factory.com" autocomplete="username"></div>
+    <div class="field"><label>รหัสผ่าน</label><input id="pass" type="password" placeholder="••••••••" autocomplete="current-password"></div>
+    <button class="btn-login" onclick="doLogin()">เข้าสู่ระบบ</button>
+    <div id="login-err"></div>
+    <div class="hint">
+      <code>manager@factory.com</code><br>
+      <code>production@factory.com</code><br>
+      <code>qc@factory.com</code><br>
+      <code>engineering@factory.com</code><br>
+      <code>maintenance@factory.com</code>
+    </div>
   </div>
 </div>
 
-<div id="app" style="display:none;">
-  <nav>
-    <strong>[<span id="display-user"></span>]</strong>
-    <button onclick="showTab('dash')" class="active">Dashboard</button>
-    <button onclick="showTab('so')">Sale Order</button>
-    <button onclick="showTab('prod')">Production</button>
-    <button onclick="showTab('qc')">QC</button>
-    <button onclick="showTab('maint')">ซ่อมบำรุง</button>
-    <button onclick="showTab('cnc')">CNC</button>
-  </nav>
+<!-- APP -->
+<div id="app">
+  <div class="topbar">
+    <h1>Factory Dashboard</h1>
+    <div style="display:flex;align-items:center;gap:12px">
+      <div class="user-badge"><div id="user-dot"></div><span id="user-name"></span></div>
+      <button class="btn-logout" onclick="doLogout()">ออกจากระบบ</button>
+    </div>
+  </div>
+  <div id="tabs"></div>
+  <div class="content">
 
-  <div id="tab-dash" class="tab-content">
-    <div class="grid-dash">
+    <!-- ══ DASHBOARD ════════════════════════════════ -->
+    <div id="page-dashboard" class="page">
+      <div class="page-title">Dashboard — ภาพรวมโรงงาน</div>
+
+      <!-- ค่าแรง vs เป้าหมาย -->
       <div class="card">
-        <h3>ยอดเป้าหมาย</h3>
-        <h2 id="dash-target">0</h2>
+        <div class="card-title">ค่าแรงพนักงาน vs ยอดเป้าหมาย (เดือนนี้)</div>
+        <div class="g5" style="margin-bottom:12px">
+          <div class="kpi-card">
+            <div class="kpi-label">ค่าแรงปกติ 8ชม.</div>
+            <div class="kpi-value" style="color:#60a5fa" id="d-total-normal">—</div>
+            <div class="kpi-sub">บาท</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">ค่าแรง OT</div>
+            <div class="kpi-value" style="color:var(--accent2)" id="d-total-ot">—</div>
+            <div class="kpi-sub">บาท</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">ค่าแรงรวม</div>
+            <div class="kpi-value" style="color:#f87171" id="d-total-labor">—</div>
+            <div class="kpi-sub">บาท</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">ยอดเป้าหมาย</div>
+            <div class="kpi-value" style="color:#a78bfa" id="d-target">—</div>
+            <div class="kpi-sub">บาท</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">% ค่าแรง / เป้าหมาย</div>
+            <div class="kpi-value" id="d-labor-pct">—</div>
+            <div class="kpi-sub">เป้า &lt; 5%</div>
+          </div>
+        </div>
+        <div class="pct-track"><div class="pct-bar" id="d-pct-bar" style="width:0%"></div><div class="pct-marker"></div></div>
+        <div class="warn-box" id="d-warn">ค่าแรงรวมเกิน 5% ของยอดเป้าหมายแล้ว — ควรทบทวนการใช้ OT</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:6px">เพดาน 5% ของยอดเป้าหมาย = <span id="d-5pct-max">—</span></div>
       </div>
-      <div class="card" style="border-left-color: #10b981;">
-        <h3>ยอดเก็บเงินจริง (บาท)</h3>
-        <h2 id="dash-collected">0</h2>
+
+      <!-- Forecast vs ยอดจริง -->
+      <div class="card">
+        <div class="card-title">ยอดเป้าหมาย vs ยอดจริง (ผู้จัดการอัปเดตได้ที่แท็บ "ยอดเป้าหมาย")</div>
+        <div class="g3">
+          <div class="kpi-card">
+            <div class="kpi-label">ยอดเป้าหมายเดือนนี้</div>
+            <div class="kpi-value" style="color:#a78bfa" id="d-target2">—</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">ยอดจริงที่เก็บได้</div>
+            <div class="kpi-value" style="color:#6ee7b7" id="d-real">—</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">% ยอดจริง / เป้าหมาย</div>
+            <div class="kpi-value" id="d-real-pct">—</div>
+          </div>
+        </div>
       </div>
-      <div class="card" style="border-left-color: #f59e0b;">
-        <h3>% ความสำเร็จ</h3>
-        <h2 id="dash-pct">0%</h2>
-      </div>
-      <div class="card" style="border-left-color: #f87171;">
-        <h3>งานซ่อมบำรุงที่ค้าง</h3>
-        <h2 id="dash-maint-count">0</h2>
+
+      <!-- Sale Order + Daily + NCR -->
+      <div class="g3">
+        <div class="card">
+          <div class="card-title">Sale Order ความคืบหน้า</div>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <span style="font-size:12px;color:var(--muted)">Item ทั้งหมด</span>
+              <span style="font-family:var(--mono);font-size:18px;font-weight:600" id="d-so-total">—</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <span style="font-size:12px;color:#6ee7b7">เสร็จสิ้น</span>
+              <span style="font-family:var(--mono);font-size:18px;font-weight:600;color:#6ee7b7" id="d-so-done">—</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <span style="font-size:12px;color:var(--accent2)">กำลังดำเนินการ</span>
+              <span style="font-family:var(--mono);font-size:18px;font-weight:600;color:var(--accent2)" id="d-so-inprog">—</span>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">Daily Report วันนี้</div>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <div style="display:flex;justify-content:space-between">
+              <span style="font-size:12px;color:var(--muted)">แผน</span>
+              <span style="font-family:var(--mono);font-weight:600" id="d-daily-planned">—</span>
+            </div>
+            <div style="display:flex;justify-content:space-between">
+              <span style="font-size:12px;color:#6ee7b7">จริง</span>
+              <span style="font-family:var(--mono);font-weight:600;color:#6ee7b7" id="d-daily-actual">—</span>
+            </div>
+            <div style="background:var(--surface2);border-radius:4px;height:8px;margin-top:4px">
+              <div class="pct-bar" id="d-daily-bar" style="width:0%"></div>
+            </div>
+            <div style="text-align:right;font-size:12px;font-family:var(--mono)" id="d-daily-pct">—</div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">NCR ของเสีย</div>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <div style="display:flex;justify-content:space-between">
+              <span style="font-size:12px;color:#f87171">เปิดอยู่</span>
+              <span style="font-family:var(--mono);font-size:22px;font-weight:600;color:#f87171" id="d-ncr-open">—</span>
+            </div>
+            <div style="display:flex;justify-content:space-between">
+              <span style="font-size:12px;color:var(--muted)">ทั้งหมด</span>
+              <span style="font-family:var(--mono);font-weight:600" id="d-ncr-total">—</span>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
-  </div>
 
-  <div id="tab-maint" class="tab-content" style="display:none; padding:20px;">
-    <h3>ระบบแจ้งซ่อมบำรุง</h3>
-    <div class="card">
-      <input type="text" id="maint-machine" placeholder="ชื่อเครื่องจักร">
-      <input type="text" id="maint-issue" placeholder="อาการเสีย">
-      <button class="btn-save" onclick="addMaintenance()">บันทึกแจ้งซ่อม</button>
+    <!-- ══ SALE ORDER ════════════════════════════════ -->
+    <div id="page-so" class="page">
+      <div class="page-title">Sale Order Tracking</div>
+
+      <div class="g3" style="margin-bottom:14px">
+        <div class="kpi-card"><div class="kpi-label">Item ทั้งหมด</div><div class="kpi-value" id="so-total">—</div></div>
+        <div class="kpi-card"><div class="kpi-label">เสร็จสิ้น</div><div class="kpi-value" style="color:#6ee7b7" id="so-done">—</div></div>
+        <div class="kpi-card"><div class="kpi-label">กำลังดำเนินการ</div><div class="kpi-value" style="color:var(--accent2)" id="so-inprog">—</div></div>
+      </div>
+
+      <!-- Status legend -->
+      <div class="card" style="padding:10px 16px;margin-bottom:14px">
+        <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;font-size:11px">
+          <span style="color:var(--muted)">ขั้นตอน:</span>
+          <span style="color:#6b7280">● รับ SO</span>
+          <span style="color:#60a5fa">● ตรวจสอบ/หน้างาน</span>
+          <span style="color:#fbbf24">● ทำแบบ/แจกจ่าย/ผลิต</span>
+          <span style="color:#a78bfa">● ติดตั้ง/Report</span>
+          <span style="color:#6ee7b7">● ขึ้นทะเบียน ✓</span>
+        </div>
+      </div>
+
+      <!-- Create Project -->
+      <div class="section-divider">สร้างโครงการใหม่ (งานบ้านตัวอย่าง)</div>
+      <div class="card">
+        <div class="form-grid">
+          <div class="fg"><label>เลขที่ Sale Order *</label><input id="proj-so" type="text" placeholder="SO2026/000000"></div>
+          <div class="fg"><label>ชื่อโครงการ *</label><input id="proj-name" type="text" placeholder="เช่น บุราสิริ พระราม 9"></div>
+          <div class="fg full"><label>หมายเหตุ</label><input id="proj-note" type="text" placeholder="รายละเอียดโครงการ"></div>
+        </div>
+        <button class="btn-submit" onclick="submitProject()">+ สร้างโครงการ</button>
+      </div>
+
+      <!-- Project List -->
+      <div class="card" style="margin-bottom:20px">
+        <div class="card-title">โครงการทั้งหมด</div>
+        <div class="table-wrap">
+          <table><thead><tr><th>SO No.</th><th>ชื่อโครงการ</th><th>จำนวน Item</th><th>เสร็จแล้ว</th><th>หมายเหตุ</th><th>จัดการ</th></tr></thead>
+          <tbody id="project-table-body"></tbody></table>
+        </div>
+      </div>
+
+      <!-- Add Item -->
+      <div class="section-divider">เพิ่ม Item เข้าโครงการ </div>
+      <div class="card">
+        <div class="info-box">รายละเอียดของงาน</div>
+        <div class="form-grid">
+          <div class="fg"><label>โครงการ *</label>
+            <select id="item-project"><option value="">-- เลือกโครงการ --</option></select>
+          </div>
+          <div class="fg"><label>Item *</label><input id="item-code" type="text" placeholder="เช่น ราวบันได , ระเบียงภายนอก"></div>
+          <div class="fg"><label>Type แบบบ้าน</label><input id="item-house" type="text" placeholder="เช่น S308B"></div>
+          <div class="fg"><label>แปลง *</label><input id="item-plot" type="text" placeholder="เช่น 62, 63"></div>
+          <div class="fg"><label>วันแผนติดตั้ง</label><input id="item-plan-date" type="date"></div>
+          <div class="fg"><label>ผู้รับผิดชอบ</label><input id="item-engineer" type="text" placeholder="ชื่อเจ้าหน้าที่เขียนแบบ"></div>
+        </div>
+        <button class="btn-submit" onclick="submitSOItem()">+ เพิ่ม Item</button>
+      </div>
+
+      <!-- Item Table -->
+      <div class="section-divider">รายการ Item ทั้งหมด</div>
+      <div class="card">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+          <label style="font-size:11px;color:var(--muted)">กรองโครงการ:</label>
+          <select id="filter-project" onchange="filterByProject()" style="background:var(--surface2);border:1px solid var(--border2);color:var(--text);font-family:var(--font);font-size:12px;padding:5px 10px;border-radius:6px;outline:none">
+            <option value="">ทั้งหมด</option>
+          </select>
+        </div>
+        <div class="table-wrap">
+          <table><thead><tr>
+            <th>SO No.</th><th>โครงการ</th><th>Item</th><th>แบบบ้าน</th>
+            <th>แปลง</th><th>แผนติดตั้ง</th><th>ผู้รับผิดชอบ</th><th>สถานะ</th><th>จัดการ</th>
+          </tr></thead>
+          <tbody id="so-table-body"></tbody></table>
+        </div>
+      </div>
     </div>
-    <table>
-      <thead><tr><th>เครื่องจักร</th><th>ปัญหา</th><th>สถานะ</th><th>จัดการ</th></tr></thead>
-      <tbody id="maint-list"></tbody>
-    </table>
-  </div>
 
-  <div id="admin-panel" style="padding:20px; border-top: 1px solid #334155; margin-top:50px;">
-    <h3>อัปเดตยอดเป้าหมาย (สำหรับผู้จัดการเท่านั้น)</h3>
-    <div class="card">
-      ดือน: <input type="month" id="goal-month">
-      เป้าหมาย: <input type="number" id="goal-target">
-      ยอดจริง: <input type="number" id="goal-collected">
-      <button class="btn-save" onclick="saveMonthlyGoal()">บันทึก</button>
+    <!-- ══ ค่าแรงพนักงาน ════════════════════════════ -->
+    <div id="page-labor" class="page">
+      <div class="page-title">ค่าแรงพนักงาน</div>
+      <div class="card">
+        <div class="info-box">
+          กรอกค่าแรง <strong style="color:var(--text)">เฉลี่ยต่อวัน</strong> ของพนักงานในไลน์ผลิต<br>
+          ระบบจะรวม ค่าแรงปกติ 8ชม. + ค่าแรง OT 
+        </div>
+        <div class="form-grid">
+          <div class="fg"><label>วันที่</label><input id="ot-date" type="date"></div>
+          <div class="fg"><label>ชั่วโมง OT</label><input id="ot-hrs" type="number" placeholder="2.5" min="0" max="12" step="0.5"></div>
+          <div class="fg"><label>ค่าแรงปกติ 8ชม. เฉลี่ย (บาท/วัน)</label><input id="ot-normal-cost" type="number" placeholder="8000" min="0"></div>
+          <div class="fg"><label>ค่าแรง OT เฉลี่ย (บาท/วัน)</label><input id="ot-cost" type="number" placeholder="1500" min="0"></div>
+          <div class="fg"><label>สาเหตุ OT</label>
+            <select id="ot-cause">
+              <option>งานเร่งด่วน</option><option>Rework</option><option>ปัญหาคุณภาพ</option>
+              <option>เครื่องเสีย/ซ่อมบำรุง</option><option>ไม่ทันแผน/เลื่อนแผนงาน</option><option>อื่นๆ / ไม่มี OT</option>
+            </select>
+          </div>
+          <div class="fg"><label>หมายเหตุ</label><input id="ot-note" type="text" placeholder="รายละเอียดเพิ่มเติม"></div>
+        </div>
+        <button class="btn-submit" onclick="submitLabor()">+ บันทึกค่าแรง</button>
+      </div>
+      <div class="card">
+        <div class="card-title">ประวัติค่าแรง (real-time)</div>
+        <div class="table-wrap">
+          <table><thead><tr>
+            <th>วันที่</th><th>แผนก</th><th>ชม. OT</th>
+            <th>ค่าแรงปกติ (บ.)</th><th>ค่าแรง OT (บ.)</th><th>รวม (บ.)</th>
+            <th>สาเหตุ</th><th>หมายเหตุ</th><th>จัดการ</th>
+          </tr></thead>
+          <tbody id="ot-table-body"></tbody>
+          </table>
+        </div>
+      </div>
     </div>
-  </div>
 
+    <!-- ══ NCR ══════════════════════════════════════ -->
+    <div id="page-ncr" class="page">
+      <div class="page-title">กรอก NCR <span class="badge-count" id="ncr-open-count">0 รายการเปิด</span></div>
+      <div class="card">
+        <div class="form-grid">
+          <div class="fg"><label>เลข NCR</label><input id="ncr-no" type="text" placeholder="NCR-2026-001"></div>
+          <div class="fg"><label>วันที่</label><input id="ncr-date" type="date"></div>
+          <div class="fg"><label>ชื่อสินค้า / งาน</label><input id="ncr-product" type="text" placeholder="เช่น ราวบันได A01"></div>
+          <div class="fg"><label>จำนวนของเสีย (ชิ้น)</label><input id="ncr-qty" type="number" placeholder="1" min="0"></div>
+          <div class="fg full"><label>ลักษณะของเสีย / สาเหตุ</label><input id="ncr-defect" type="text" placeholder="เช่น รอยเชื่อมไม่สม่ำเสมอ"></div>
+          <div class="fg"><label>ระดับความรุนแรง</label>
+            <select id="ncr-severity"><option>สูง</option><option selected>กลาง</option><option>ต่ำ</option></select>
+          </div>
+          <div class="fg"><label>แนวทางแก้ไข</label><input id="ncr-action" type="text" placeholder="วิธีแก้ไข / แผนป้องกัน"></div>
+        </div>
+        <button class="btn-submit" onclick="submitNCR()">+ บันทึก NCR</button>
+      </div>
+      <div class="card" id="ncr-table-section">
+        <div class="card-title">รายการ NCR ทั้งหมด</div>
+        <div class="table-wrap">
+          <table><thead><tr><th>เลข NCR</th><th>วันที่</th><th>แผนก</th><th>งาน</th><th>ของเสีย</th><th>จำนวน</th><th>ระดับ</th><th>สถานะ</th><th>จัดการ</th></tr></thead>
+          <tbody id="ncr-table-body"></tbody></table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ DAILY REPORT ══════════════════════════════ -->
+    <div id="page-daily" class="page">
+      <div class="page-title">Daily Report</div>
+      <div class="card">
+        <div class="form-grid">
+          <div class="fg"><label>วันที่</label><input id="d-date" type="date"></div>
+          <div class="fg"><label>กำลังคน (คน)</label><input id="d-manpower" type="number" placeholder="10" min="0"></div>
+          <div class="fg"><label>แผนผลิต (งาน)</label><input id="d-planned" type="number" placeholder="20" min="0"></div>
+          <div class="fg"><label>ผลิตได้จริง (งาน)</label><input id="d-actual" type="number" placeholder="18" min="0"></div>
+          <div class="fg full"><label>ปัญหาที่พบ</label><textarea id="d-issues" placeholder="เช่น เครื่องเชื่อม #3 ขัดข้อง"></textarea></div>
+          <div class="fg full"><label>แผนแก้ไข / Action</label><textarea id="d-action" placeholder="เช่น ประสานซ่อมบำรุงแล้ว"></textarea></div>
+        </div>
+        <button class="btn-submit" onclick="submitDaily()">+ บันทึก Daily Report</button>
+      </div>
+      <div class="card">
+        <div class="card-title">Daily Report ทั้งหมด</div>
+        <div class="table-wrap">
+          <table><thead><tr><th>วันที่</th><th>แผนก</th><th>แผน</th><th>จริง</th><th>%</th><th>ปัญหา</th><th>Action</th><th>จัดการ</th></tr></thead>
+          <tbody id="daily-table-body"></tbody></table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ ยอดเป้าหมาย (Manager only) ═══════════════ -->
+    <div id="page-target" class="page">
+      <div class="page-title">ยอดเป้าหมาย (เฉพาะผู้จัดการ)</div>
+      <div class="card">
+        <div class="card-title">ตั้งค่ายอดเป้าหมายและยอดจริง</div>
+        <div class="form-grid">
+          <div class="fg"><label>เดือน</label><input id="target-month" type="month"></div>
+          <div class="fg"><label>ยอดเป้าหมาย (บาท)</label><input id="target-input" type="number" placeholder="2000000" min="0"></div>
+          <div class="fg full"><label>ยอดจริงที่เก็บเงินได้ (บาท)</label><input id="target-real" type="number" placeholder="1850000" min="0"></div>
+        </div>
+        <button class="btn-submit" onclick="saveForecast()">บันทึกยอดเป้าหมาย</button>
+      </div>
+      <div class="card">
+        <div class="card-title">ข้อมูลปัจจุบัน</div>
+        <div class="g3">
+          <div class="kpi-card">
+            <div class="kpi-label">ยอดเป้าหมาย</div>
+            <div class="kpi-value" style="color:#a78bfa" id="forecast-amount-display">—</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">ยอดจริงที่เก็บได้</div>
+            <div class="kpi-value" style="color:#6ee7b7" id="d-real2">—</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">เพดาน OT 5%</div>
+            <div class="kpi-value" style="color:var(--accent2)" id="forecast-5pct">—</div>
+            <div class="kpi-sub">บาท</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ EXPORT ════════════════════════════════════ -->
+    <div id="page-export" class="page">
+      <div class="page-title">Export ข้อมูล</div>
+      <div class="card">
+        <div class="card-title">Export CSV (เปิดใน Excel)</div>
+        <button class="btn-exp" onclick="exportCSV('ot')">⬇ ค่าแรงพนักงาน (.csv)</button>
+        <button class="btn-exp" onclick="exportCSV('ncr')">⬇ NCR (.csv)</button>
+        <button class="btn-exp" onclick="exportCSV('daily')">⬇ Daily Report (.csv)</button>
+        <button class="btn-exp" onclick="exportCSV('projects')">⬇ โครงการ (.csv)</button>
+        <button class="btn-exp" onclick="exportCSV('soitems')">⬇ Sale Order Items (.csv)</button>
+      </div>
+      <div class="card">
+        <div class="card-title">Print / PDF</div>
+        <button class="btn-exp" onclick="window.print()">Print ทั้งหน้า</button>
+      </div>
+    </div>
+
+  </div>
 </div>
+
+<!-- EDIT MODAL -->
+<div id="edit-modal">
+  <div class="modal-box">
+    <div class="modal-title">แก้ไขข้อมูล</div>
+    <div id="modal-body"></div>
+    <div class="modal-actions">
+      <button class="modal-btn modal-btn-cancel" onclick="closeModal()">ยกเลิก</button>
+      <button class="modal-btn modal-btn-save" id="modal-save">บันทึก</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
 
 <script>
-  function showTab(name) {
-    document.querySelectorAll('.tab-content').forEach(t => t.style.display = 'none');
-    document.getElementById('tab-' + name).style.display = 'block';
-  }
-  async function login() {
-    const e = document.getElementById("login-email").value;
-    const p = document.getElementById("login-pass").value;
-    try { await signInWithEmailAndPassword(auth, e, p); } catch(err) { alert("Login Failed"); }
-  }
+document.addEventListener("DOMContentLoaded", () => {
+  const today = new Date().toISOString().slice(0,10);
+  const month = today.slice(0,7);
+  ["ot-date","ncr-date","d-date"].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=today; });
+  ["target-month"].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=month; });
+});
 </script>
 </body>
 </html>
