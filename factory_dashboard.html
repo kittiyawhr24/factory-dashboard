@@ -264,7 +264,7 @@ function renderDashboard(otDocs) {
   const totalNormal = monthly.reduce((s,d)=>s+(d.normalCost||0),0);
   const totalOT     = monthly.reduce((s,d)=>s+(d.otCost||d.cost||0),0);
   const totalCost   = totalNormal + totalOT;
-  const otPct       = forecastAmount>0 ? ((totalCost/forecastAmount)*100).toFixed(2) : null;
+  const otPct       = ยอดเป้าหมายAmount>0 ? ((totalCost/ยอดเป้าหมายAmount)*100).toFixed(2) : null;
   const warn      = otPct!==null && parseFloat(otPct)>5;
 
   document.getElementById("dash-total-hrs").textContent  = totalHrs.toFixed(1);
@@ -273,7 +273,7 @@ function renderDashboard(otDocs) {
   const do_ = document.getElementById("dash-ot-cost");
   if (dn) dn.textContent = fmtBaht(totalNormal);
   if (do_) do_.textContent = fmtBaht(totalOT);
-  document.getElementById("dash-target").textContent   = forecastAmount>0 ? fmtBaht(forecastAmount) : "ยังไม่ได้กรอก";
+  document.getElementById("dash-target").textContent   = ยอดเป้าหมายAmount>0 ? fmtBaht(ยอดเป้าหมายAmount) : "ยังไม่ได้กรอก";
 
   const pctEl = document.getElementById("dash-ot-pct");
   if (otPct!==null) {
