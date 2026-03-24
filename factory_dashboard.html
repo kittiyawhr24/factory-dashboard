@@ -785,15 +785,15 @@ tr:hover td{background:rgba(255,255,255,.02)}
       <div style="display:flex;flex-wrap:wrap;gap:10px;font-size:11px">
         <span style="color:var(--muted)">ขั้นตอน:</span>
         <span style="color:#6b7280">● รับ SO</span><span style="color:#60a5fa">● ตรวจสอบ</span>
-        <span style="color:#fbbf24">● ทำแบบ/ผลิต</span><span style="color:#a78bfa">● ติดตั้ง</span>
-        <span style="color:#6ee7b7">● เสร็จสิ้น ✓</span>
+        <span style="color:#fbbf24">● ทำแบบผลิต</span><span style="color:#a78bfa">● ติดตั้ง</span>
+        <span style="color:#a78bfa">● สรุป Trial</span><span style="color:#6ee7b7">● เสร็จสิ้น ✓</span>
       </div>
     </div>
-    <div class="sdiv">สร้างโครงการใหม่</div>
+    <div class="sdiv">โครงการใหม่ (บ้านตัวอย่าง)</div>
     <div class="card">
       <div class="fgrid">
-        <div class="fg"><label>SO Number *</label><input id="proj-so" type="text" placeholder="SO-2026-001"></div>
-        <div class="fg"><label>ชื่อโครงการ *</label><input id="proj-name" type="text" placeholder="เช่น ศุภาลัย พาร์ค"></div>
+        <div class="fg"><label>เลขที่เอกสาร SO *</label><input id="proj-so" type="text" placeholder="SO2569/00000"></div>
+        <div class="fg"><label>ชื่อโครงการ *</label><input id="proj-name" type="text" placeholder="เช่น บุราสิริ พระราม 9"></div>
         <div class="fg full"><label>หมายเหตุ</label><input id="proj-note" type="text" placeholder="รายละเอียด"></div>
       </div>
       <button class="btn-s" onclick="submitProject()">+ สร้างโครงการ</button>
@@ -804,14 +804,14 @@ tr:hover td{background:rgba(255,255,255,.02)}
     </div>
     <div class="sdiv">เพิ่ม Item เข้าโครงการ</div>
     <div class="card">
-      <div class="info-box">1 โครงการ มีหลาย Item — เช่น ราวบันได S340, ระเบียง S308 แต่ละ Item ติดตาม 9 ขั้นตอนแยกกัน</div>
+      <div class="info-box">รายละเอียดงาน</div>
       <div class="fgrid">
         <div class="fg"><label>โครงการ *</label><select id="item-project"><option value="">-- เลือกโครงการ --</option></select></div>
-        <div class="fg"><label>Item / รหัสสินค้า *</label><input id="item-code" type="text" placeholder="เช่น ราวบันได S340"></div>
-        <div class="fg"><label>Type แบบบ้าน</label><input id="item-house" type="text" placeholder="เช่น Type A 2ชั้น"></div>
-        <div class="fg"><label>แปลงที่ *</label><input id="item-plot" type="text" placeholder="เช่น A101"></div>
-        <div class="fg"><label>วันแผนติดตั้ง</label><input id="item-plan-date" type="date"></div>
-        <div class="fg"><label>วิศวกรผู้รับผิดชอบ</label><input id="item-engineer" type="text" placeholder="ชื่อวิศวกร"></div>
+        <div class="fg"><label>Item *</label><input id="item-code" type="text" placeholder="เช่น ราวบันได "></div>
+        <div class="fg"><label>Type </label><input id="item-house" type="text" placeholder="เช่น S308B"></div>
+        <div class="fg"><label>แปลง *</label><input id="item-plot" type="text" placeholder="เช่น 62"></div>
+        <div class="fg"><label>แผนติดตั้ง</label><input id="item-plan-date" type="date"></div>
+        <div class="fg"><label>ผู้รับผิดชอบ</label><input id="item-engineer" type="text" placeholder="ชื่อเจ้าหน้าที่เขียนแบบ"></div>
       </div>
       <button class="btn-s" onclick="submitSOItem()">+ เพิ่ม Item</button>
     </div>
@@ -823,7 +823,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
           <option value="">ทั้งหมด</option>
         </select>
       </div>
-      <div class="tw"><table><thead><tr><th>SO</th><th>โครงการ</th><th>Item</th><th>แบบบ้าน</th><th>แปลง</th><th>แผน</th><th>วิศวกร</th><th>สถานะ</th><th>จัดการ</th></tr></thead><tbody id="so-tbody"></tbody></table></div>
+      <div class="tw"><table><thead><tr><th>SO</th><th>โครงการ</th><th>Item</th><th>แบบบ้าน</th><th>แปลง</th><th>แผน</th><th>ผู้รับผิดชอบ</th><th>สถานะ</th><th>จัดการ</th></tr></thead><tbody id="so-tbody"></tbody></table></div>
     </div>
   </div>
  
@@ -837,8 +837,8 @@ tr:hover td{background:rgba(255,255,255,.02)}
         <div class="fg"><label>ชั่วโมง OT</label><input id="ot-hrs" type="number" placeholder="2.5" min="0" step="0.5"></div>
         <div class="fg"><label>ค่าแรงปกติ 8ชม. (บ./วัน)</label><input id="ot-normal" type="number" placeholder="8000" min="0"></div>
         <div class="fg"><label>ค่าแรง OT (บ./วัน)</label><input id="ot-ot" type="number" placeholder="1500" min="0"></div>
-        <div class="fg full"><label>สาเหตุ OT</label><input id="ot-cause" type="text" placeholder="พิมพ์สาเหตุ OT หรือหมายเหตุ"></div>
-        <div class="fg full"><label>หมายเหตุเพิ่มเติม</label><input id="ot-note" type="text" placeholder="รายละเอียด"></div>
+        <div class="fg full"><label>สาเหตุ OT</label><input id="ot-cause" type="text" placeholder="ระบุสาเหตุ"></div>
+        <div class="fg full"><label>หมายเหตุ</label><input id="ot-note" type="text" placeholder="รายละเอียดเพิ่มเติม"></div>
       </div>
       <button class="btn-s" onclick="submitLabor()">+ บันทึกค่าแรง</button>
     </div>
@@ -859,7 +859,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
         <div class="fg"><label>ชื่อสินค้า/งาน *</label><input id="qc-product" type="text" placeholder="เช่น ราวบันได A01"></div>
         <div class="fg"><label>ชื่อโครงการ</label><input id="qc-project" type="text" placeholder="ชื่อโครงการ"></div>
         <div class="fg"><label>แบบบ้าน</label><input id="qc-house" type="text" placeholder="Type A / 2ชั้น"></div>
-        <div class="fg"><label>แปลงที่</label><input id="qc-plot" type="text" placeholder="A101"></div>
+        <div class="fg"><label>แปลง</label><input id="qc-plot" type="text" placeholder="เช่น 62"></div>
         <div class="fg full"><label>ลักษณะของเสีย/สาเหตุ</label><input id="qc-defect" type="text" placeholder="เช่น รอยเชื่อมไม่สม่ำเสมอ"></div>
         <div class="fg"><label>จำนวน (ชิ้น)</label><input id="qc-qty" type="number" placeholder="1" min="0"></div>
         <div class="fg"><label>ระดับความรุนแรง</label><select id="qc-severity"><option>สูง</option><option selected>กลาง</option><option>ต่ำ</option></select></div>
@@ -905,7 +905,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
         <div class="fg"><label>Item / รายการผลิต *</label><input id="pi-item" type="text" placeholder="เช่น ราวบันได, ระเบียง, ประตู"></div>
         <div class="fg"><label>โครงการ</label><input id="pi-project" type="text" placeholder="ชื่อโครงการ"></div>
         <div class="fg"><label>แบบบ้าน</label><input id="pi-house" type="text" placeholder="Type A / S340"></div>
-        <div class="fg"><label>แปลงที่</label><input id="pi-plot" type="text" placeholder="เช่น A101"></div>
+        <div class="fg"><label>แปลง</label><input id="pi-plot" type="text" placeholder="เช่น 62"></div>
         <div class="fg"><label>แผน (ชิ้น)</label><input id="pi-planned" type="number" placeholder="5" min="0"></div>
         <div class="fg"><label>ผลิตจริง (ชิ้น)</label><input id="pi-actual" type="number" placeholder="4" min="0"></div>
         <div class="fg full"><label>ปัญหาที่พบ (Morning Talk)</label><textarea id="pi-issues" placeholder="รายงานปัญหาที่พบ"></textarea></div>
