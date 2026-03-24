@@ -51,7 +51,7 @@ onAuthStateChanged(auth, user => {
     // show target tab only for manager
     initTabs();
     subscribeAll();
-    loadForecast(currentMonth);
+    loadยอดเป้าหมาย(currentMonth);
   } else {
     currentUser = null; isManager = false;
     document.getElementById("login-screen").style.display = "flex";
@@ -77,7 +77,7 @@ function initTabs() {
     ["page-ot","ค่าแรงพนักงาน"],
     ["page-ncr","NCR"],
     ["page-daily","Daily Report"],
-    ...(isManager ? [["page-forecast","ยอดเป้าหมาย"]] : []),
+    ...(isManager ? [["page-ยอดเป้าหมาย","ยอดเป้าหมาย"]] : []),
     ["page-export","Export"],
   ];
   document.getElementById("tabs").innerHTML = tabs.map(([id,label])=>
