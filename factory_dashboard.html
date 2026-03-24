@@ -866,10 +866,9 @@ tr:hover td{background:rgba(255,255,255,.02)}
           <div class="fg"><label>ค่าแรงปกติ 8ชม. เฉลี่ย (บาท/วัน)</label><input id="ot-normal-cost" type="number" placeholder="8000" min="0"></div>
           <div class="fg"><label>ค่าแรง OT เฉลี่ย (บาท/วัน)</label><input id="ot-cost" type="number" placeholder="1500" min="0"></div>
           <div class="fg"><label>สาเหตุ OT</label>
-            </select>
-          </div>
-          <div class="fg"><label>สาเหตุ OT</label><input id="ot-note" type="text" placeholder="งานเร่งด่วน/แก้ไขแบบ/ปัญหาคุณภาพ"></div>
-        </div>
+            <select id="ot-cause">
+              <option>งานเร่งจากลูกค้า</option><option>แผนผลิตพลาด</option>
+              <option>เครื่องเสีย</option><option>คนขาด</option><option>อื่นๆ / ไม่มี OT</option>
           </div>
           <div class="fg"><label>หมายเหตุ</label><input id="ot-note" type="text" placeholder="รายละเอียดเพิ่มเติม"></div>
         </div>
