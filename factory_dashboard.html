@@ -858,7 +858,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
       <div class="card">
         <div class="info-box">
           กรอกค่าแรง <strong style="color:var(--text)">เฉลี่ยต่อวัน</strong> ของพนักงานในไลน์ผลิต<br>
-          ระบบจะรวม ค่าแรงปกติ 8ชม. + ค่าแรง OT เทียบกับยอดเป้าหมายของเดือนนั้นๆ
+          ระบบจะรวม ค่าแรงปกติ 8ชม. + ค่าแรง OT 
         </div>
         <div class="form-grid">
           <div class="fg"><label>วันที่</label><input id="ot-date" type="date"></div>
@@ -866,10 +866,10 @@ tr:hover td{background:rgba(255,255,255,.02)}
           <div class="fg"><label>ค่าแรงปกติ 8ชม. เฉลี่ย (บาท/วัน)</label><input id="ot-normal-cost" type="number" placeholder="8000" min="0"></div>
           <div class="fg"><label>ค่าแรง OT เฉลี่ย (บาท/วัน)</label><input id="ot-cost" type="number" placeholder="1500" min="0"></div>
           <div class="fg"><label>สาเหตุ OT</label>
-            <select id="ot-cause">
-              <option>งานเร่งจากลูกค้า</option><option>แผนผลิตพลาด</option>
-              <option>เครื่องเสีย</option><option>คนขาด</option><option>อื่นๆ / ไม่มี OT</option>
             </select>
+          </div>
+          <div class="fg"><label>สาเหตุ OT</label><input id="ot-note" type="text" placeholder="งานเร่งด่วน/แก้ไขแบบ/ปัญหาคุณภาพ"></div>
+        </div>
           </div>
           <div class="fg"><label>หมายเหตุ</label><input id="ot-note" type="text" placeholder="รายละเอียดเพิ่มเติม"></div>
         </div>
