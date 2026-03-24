@@ -104,42 +104,42 @@ function fmtBaht(n) {
 }
 
 // ── ยอดเป้าหมาย ──────────────────────────────────────
-let forecastAmount = 0;
+let ยอดเป้าหมายAmount = 0;
 
-async function loadForecast(month) {
-  const ref = doc(db,"forecast",month);
+async function loadยอดเป้าหมาย(month) {
+  const ref = doc(db,"ยอดเป้าหมาย",month);
   const snap = await getDoc(ref);
-  forecastAmount = snap.exists() ? (snap.data().amount||0) : 0;
-  renderForecastUI();
+  ยอดเป้าหมายAmount = snap.exists() ? (snap.data().amount||0) : 0;
+  renderยอดเป้าหมายUI();
 }
 
-function renderForecastUI() {
-  const el = document.getElementById("forecast-amount-display");
-  if (el) el.textContent = fmtBaht(forecastAmount) + " บาท";
-  const inp = document.getElementById("forecast-input");
-  if (inp) inp.value = forecastAmount || "";
+function rendeยอดเป้าหมายUI() {
+  const el = document.getElementById("ยอดเป้าหมาย-amount-display");
+  if (el) el.textContent = fmtBaht(ยอดเป้าหมายAmount) + " บาท";
+  const inp = document.getElementById("ยอดเป้าหมาย-input");
+  if (inp) inp.value = ยอดเป้าหมายAmount || "";
 }
 
-window.saveForecast = async () => {
+window.saveยอดเป้าหมาย = async () => {
   if (!isManager) { alert("เฉพาะผู้จัดการเท่านั้น"); return; }
-  const val = parseFloat(document.getElementById("forecast-input").value);
+  const val = parseFloat(document.getElementById("ยอดเป้าหมาย-input").value);
   if (!val||val<=0) { alert("กรุณากรอกตัวเลข target"); return; }
-  const month = document.getElementById("forecast-month").value || currentMonth;
-  await setDoc(doc(db,"forecast",month), {
+  const month = document.getElementById("ยอดเป้าหมาย-month").value || currentMonth;
+  await setDoc(doc(db,"ยอดเป้าหมาย",month), {
     amount: val, updatedBy: currentUser.email,
     updatedAt: serverTimestamp(), month
   });
-  forecastAmount = val;
+  ยอดเป้าหมายAmount = val;
   currentMonth   = month;
-  renderForecastUI();
+  renderยอดเป้าหมายUI();
   showToast("บันทึกยอดเป้าหมาย สำเร็จ ✓");
   // reload dashboard
-  loadForecastForDashboard(month);
+  loadยอดเป้าหมายForDashboard(month);
 };
 
-async function loadForecastForDashboard(month) {
-  const snap = await getDoc(doc(db,"forecast",month));
-  forecastAmount = snap.exists() ? (snap.data().amount||0) : 0;
+async function loadยอดเป้าหมายForDashboard(month) {
+  const snap = await getDoc(doc(db,"ยอดเป้าหมาย",month));
+  ยอดเป้าหมายAmount = snap.exists() ? (snap.data().amount||0) : 0;
 }
 
 // ── Subscribe ─────────────────────────────────────
