@@ -797,11 +797,11 @@ tr:hover td{background:rgba(255,255,255,.02)}
       </div>
 
       <!-- Create Project -->
-      <div class="section-divider">สร้างโครงการใหม่ (1 SO = 1 โครงการ)</div>
+      <div class="section-divider">สร้างโครงการใหม่ (งานบ้านตัวอย่าง)</div>
       <div class="card">
         <div class="form-grid">
-          <div class="fg"><label>SO Number *</label><input id="proj-so" type="text" placeholder="SO-2026-001"></div>
-          <div class="fg"><label>ชื่อโครงการ *</label><input id="proj-name" type="text" placeholder="เช่น ศุภาลัย พาร์ค รังสิต"></div>
+          <div class="fg"><label>เลขที่ Sale Order *</label><input id="proj-so" type="text" placeholder="SO2026/000000"></div>
+          <div class="fg"><label>ชื่อโครงการ *</label><input id="proj-name" type="text" placeholder="เช่น บุราสิริ พระราม 9"></div>
           <div class="fg full"><label>หมายเหตุ</label><input id="proj-note" type="text" placeholder="รายละเอียดโครงการ"></div>
         </div>
         <button class="btn-submit" onclick="submitProject()">+ สร้างโครงการ</button>
@@ -809,7 +809,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
 
       <!-- Project List -->
       <div class="card" style="margin-bottom:20px">
-        <div class="card-title">รายการโครงการทั้งหมด</div>
+        <div class="card-title">โครงการทั้งหมด</div>
         <div class="table-wrap">
           <table><thead><tr><th>SO No.</th><th>ชื่อโครงการ</th><th>จำนวน Item</th><th>เสร็จแล้ว</th><th>หมายเหตุ</th><th>จัดการ</th></tr></thead>
           <tbody id="project-table-body"></tbody></table>
@@ -817,18 +817,18 @@ tr:hover td{background:rgba(255,255,255,.02)}
       </div>
 
       <!-- Add Item -->
-      <div class="section-divider">เพิ่ม Item เข้าโครงการ (1 Item = 1 แบบบ้าน/แปลง)</div>
+      <div class="section-divider">เพิ่ม Item เข้าโครงการ </div>
       <div class="card">
         <div class="info-box">รายละเอียดของงาน</div>
         <div class="form-grid">
           <div class="fg"><label>โครงการ *</label>
             <select id="item-project"><option value="">-- เลือกโครงการ --</option></select>
           </div>
-          <div class="fg"><label>Item / รหัสสินค้า *</label><input id="item-code" type="text" placeholder="เช่น ราวบันได S340, ระเบียง S308"></div>
-          <div class="fg"><label>Type แบบบ้าน</label><input id="item-house" type="text" placeholder="เช่น Type A, 2ชั้น"></div>
-          <div class="fg"><label>แปลงที่ *</label><input id="item-plot" type="text" placeholder="เช่น A101, B203"></div>
+          <div class="fg"><label>Item *</label><input id="item-code" type="text" placeholder="เช่น ราวบันได , ระเบียงภายนอก"></div>
+          <div class="fg"><label>Type แบบบ้าน</label><input id="item-house" type="text" placeholder="เช่น S308B"></div>
+          <div class="fg"><label>แปลง *</label><input id="item-plot" type="text" placeholder="เช่น 62, 63"></div>
           <div class="fg"><label>วันแผนติดตั้ง</label><input id="item-plan-date" type="date"></div>
-          <div class="fg"><label>วิศวกรผู้รับผิดชอบ</label><input id="item-engineer" type="text" placeholder="ชื่อวิศวกร"></div>
+          <div class="fg"><label>ผู้รับผิดชอบ</label><input id="item-engineer" type="text" placeholder="ชื่อวิศวกร"></div>
         </div>
         <button class="btn-submit" onclick="submitSOItem()">+ เพิ่ม Item</button>
       </div>
