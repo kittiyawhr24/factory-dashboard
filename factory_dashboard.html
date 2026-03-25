@@ -759,8 +759,8 @@ tr:hover td{background:rgba(255,255,255,.02)}
       <div class="card">
         <div class="ct">QC </div>
         <div style="display:flex;flex-direction:column;gap:7px">
-          <div style="display:flex;justify-content:space-between"><span style="font-size:12px;color:#f87171">NCR เปิด</span><span style="font-family:var(--mono);font-size:22px;font-weight:600;color:#f87171" id="d-qc-open">—</span></div>
-          <div style="display:flex;justify-content:space-between"><span style="font-size:12px;color:var(--muted)">NCR ทั้งหมด</span><span style="font-family:var(--mono);font-weight:600" id="d-qc-total">—</span></div>
+          <div style="display:flex;justify-content:space-between"><span style="font-size:12px;color:#f87171">NCR Open</span><span style="font-family:var(--mono);font-size:22px;font-weight:600;color:#f87171" id="d-qc-open">—</span></div>
+          <div style="display:flex;justify-content:space-between"><span style="font-size:12px;color:var(--muted)">จำนวนทั้งหมด</span><span style="font-family:var(--mono);font-weight:600" id="d-qc-total">—</span></div>
         </div>
       </div>
     </div>
@@ -880,7 +880,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
       <div class="tw"><table><thead><tr><th>NCR No.</th><th>วันที่</th><th>แผนก</th><th>โครงการ</th><th>แบบบ้าน</th><th>แปลง</th><th>สินค้า</th><th>ของเสีย</th><th>จำนวน</th><th>ระดับ</th><th>สถานะ</th><th>จัดการ</th></tr></thead><tbody id="qc-tbody"></tbody></table></div>
     </div>
 
-    <div class="sdiv">รายการรับวัตถุดิบ/Material (incoming QC record)</div>
+    <div class="sdiv">รายการรับวัตถุดิบ/Material (Incoming QC Record)</div>
     <div class="card">
       <div class="fgrid">
         <div class="fg"><label>วันที่ *</label><input id="mat-date" type="date"></div>
@@ -914,16 +914,16 @@ tr:hover td{background:rgba(255,255,255,.02)}
         <div class="fg"><label>Item / รายการผลิต *</label><input id="pi-item" type="text" placeholder="เช่น ราวบันได, ระเบียง, ประตู"></div>
         <div class="fg"><label>โครงการ</label><input id="pi-project" type="text" placeholder="ชื่อโครงการ"></div>
         <div class="fg"><label>แบบบ้าน</label><input id="pi-house" type="text" placeholder="Type A / S340"></div>
-        <div class="fg"><label>แปลงที่</label><input id="pi-plot" type="text" placeholder="เช่น A101"></div>
-        <div class="fg"><label>แผน (ชิ้น)</label><input id="pi-planned" type="number" placeholder="5" min="0"></div>
-        <div class="fg"><label>ผลิตจริง (ชิ้น)</label><input id="pi-actual" type="number" placeholder="4" min="0"></div>
+        <div class="fg"><label>แปลงที่</label><input id="pi-plot" type="text" placeholder="เช่น 62"></div>
+        <div class="fg"><label>Plan (ชิ้น)</label><input id="pi-planned" type="number" placeholder="5" min="0"></div>
+        <div class="fg"><label>Actual (ชิ้น)</label><input id="pi-actual" type="number" placeholder="4" min="0"></div>
         <div class="fg full"><label>ปัญหาที่พบ (Morning Talk)</label><textarea id="pi-issues" placeholder="รายงานปัญหาที่พบ"></textarea></div>
         <div class="fg full"><label>แผนแก้ไข / Action</label><textarea id="pi-action" placeholder="แนวทางและแผนแก้ไข"></textarea></div>
       </div>
       <button class="btn-s" onclick="submitProdItem()">+ บันทึก Production</button>
     </div>
     <div class="card"><div class="ct">รายการผลิตทั้งหมด</div>
-      <div class="tw"><table><thead><tr><th>วันที่</th><th>แผนก</th><th>Item</th><th>โครงการ</th><th>แบบบ้าน</th><th>แปลง</th><th>แผน</th><th>จริง</th><th>คน</th><th>ปัญหา</th><th>จัดการ</th></tr></thead><tbody id="prod-tbody"></tbody></table></div>
+      <div class="tw"><table><thead><tr><th>วันที่</th><th>แผนก</th><th>Item</th><th>โครงการ</th><th>แบบบ้าน</th><th>แปลง</th><th>Plan</th><th>Actual</th><th>คน</th><th>ปัญหา</th><th>จัดการ</th></tr></thead><tbody id="prod-tbody"></tbody></table></div>
     </div>
   </div>
 
@@ -937,9 +937,9 @@ tr:hover td{background:rgba(255,255,255,.02)}
         <div class="fg"><label>เครื่องจักร</label><input id="cnc-machine" type="text" placeholder="ชื่อเครื่อง CNC"></div>
         <div class="fg"><label>โครงการ</label><input id="cnc-project" type="text" placeholder="ชื่อโครงการ"></div>
         <div class="fg"><label>แบบบ้าน / Type</label><input id="cnc-house" type="text" placeholder="Type A"></div>
-        <div class="fg"><label>วัสดุดิบที่ใช้</label><input id="cnc-material" type="text" placeholder="เช่น อลูมิเนียม 6061"></div>
-        <div class="fg"><label>เป้าหมาย (ชิ้น)</label><input id="cnc-planned" type="number" placeholder="50" min="0"></div>
-        <div class="fg"><label>ผลิตจริง (ชิ้น)</label><input id="cnc-actual" type="number" placeholder="48" min="0"></div>
+        <div class="fg"><label>วัสดุดิบที่ใช้</label><input id="cnc-material" type="text" placeholder="เช่น เหล็กแผ่น 3 mm."></div>
+        <div class="fg"><label>Plan (ชิ้น)</label><input id="cnc-planned" type="number" placeholder="50" min="0"></div>
+        <div class="fg"><label>Actual (ชิ้น)</label><input id="cnc-actual" type="number" placeholder="48" min="0"></div>
         <div class="fg full"><label>หมายเหตุ</label><input id="cnc-note" type="text" placeholder="หมายเหตุ / ปัญหาที่พบ"></div>
       </div>
       <button class="btn-s" onclick="submitCNC()">+ บันทึก CNC</button>
