@@ -157,7 +157,7 @@ function subscribeAll(){
 
 // ── submit forms ──────────────────────────────────
 window.submitLabor=async()=>{
-  const date=$("ot-date")?.value;if(!date){alert("กรุณาเลือกวันที่");return;}
+  const date=$("ot-date")?.value;if(!date){toast("กรุณาเลือกวันที่");return;}
   const n=parseFloat($("ot-normal")?.value)||0, o=parseFloat($("ot-ot")?.value)||0;
   await addDoc(collection(db,"ot"),{
     dept:myDept(),email:U.email,date,
@@ -173,7 +173,7 @@ window.submitLabor=async()=>{
 window.submitQC=async()=>{
   const date=$("qc-date")?.value,ncrNo=$("qc-no")?.value.trim();
   const product=$("qc-product")?.value.trim();
-  if(!date||!ncrNo||!product){alert("กรุณากรอกข้อมูลให้ครบ");return;}
+  if(!date||!ncrNo||!product){toast("กรุณากรอกข้อมูลให้ครบ");return;}
   await addDoc(collection(db,"qc"),{
     dept:myDept(),email:U.email,date,ncrNo,product,
     project:$("qc-project")?.value.trim()||"",
@@ -191,7 +191,7 @@ window.submitQC=async()=>{
 
 window.submitMat=async()=>{
   const date=$("mat-date")?.value,name=$("mat-name")?.value.trim();
-  if(!date||!name){alert("กรุณากรอกวันที่และชื่อวัตถุดิบ");return;}
+  if(!date||!name){toast("กรุณากรอกวันที่และชื่อวัตถุดิบ");return;}
   await addDoc(collection(db,"mat"),{
     dept:myDept(),email:U.email,date,name,
     code:$("mat-code")?.value.trim()||"",
@@ -226,7 +226,7 @@ window.submitProdItem=async()=>{
 
 window.submitCNC=async()=>{
   const date=$("cnc-date")?.value,part=$("cnc-part")?.value.trim();
-  if(!date||!part){alert("กรุณากรอกวันที่และชื่อ Part");return;}
+  if(!date||!part){toast("กรุณากรอกวันที่และชื่อ Part");return;}
   await addDoc(collection(db,"cnc"),{
     dept:myDept(),email:U.email,date,part,
     machine:$("cnc-machine")?.value.trim()||"",
@@ -243,7 +243,7 @@ window.submitCNC=async()=>{
 
 window.submitMaint=async()=>{
   const date=$("mt-date")?.value,jobName=$("mt-job")?.value.trim();
-  if(!date||!jobName){alert("กรุณากรอกวันที่และชื่องาน");return;}
+  if(!date||!jobName){toast("กรุณากรอกวันที่และชื่องาน");return;}
   await addDoc(collection(db,"maint"),{
     dept:myDept(),email:U.email,date,jobName,
     jobType:$("mt-type")?.value||"ซ่อม",
@@ -260,16 +260,16 @@ window.submitMaint=async()=>{
 // ── SO ────────────────────────────────────────────
 window.submitProject=async()=>{
   const soNo=$("proj-so")?.value.trim(),name=$("proj-name")?.value.trim();
-  if(!soNo||!name){alert("กรุณากรอก SO Number และชื่อโครงการ");return;}
-  const snap=await getDocs(query(collection(db,"projects")));
-  if(snap.docs.find(d=>d.data().soNo===soNo)){alert("SO Number นี้มีอยู่แล้ว");return;}
-  await addDoc(collection(db,"projects"),{soNo,name,note:$("proj-note")?.value.trim()||"",createdBy:U.email,ts:serverTimestamp()});
-  ["proj-so","proj-name","proj-note"].forEach(id=>{const e=$(id);if(e)e.value="";});
-  toast("สร้างโครงการสำเร็จ ✓");
+  if(!soNo||!name){toast("กรุณากรอก SO Number และชื่อโครงการ");return;}
+  try{
+    await addDoc(collection(db,"projects"),{soNo,name,note:$("proj-note")?.value.trim()||"",createdBy:U.email,ts:serverTimestamp()});
+    ["proj-so","proj-name","proj-note"].forEach(id=>{const e=$(id);if(e)e.value="";});
+    toast("สร้างโครงการสำเร็จ ✓");
+  }catch(e){toast("บันทึกไม่ได้: "+e.message);}
 };
 window.submitSOItem=async()=>{
   const projId=$("item-project")?.value,itemCode=$("item-code")?.value.trim(),plot=$("item-plot")?.value.trim();
-  if(!projId||!itemCode||!plot){alert("กรุณาเลือกโครงการ, กรอก Item และแปลง");return;}
+  if(!projId||!itemCode||!plot){toast("กรุณาเลือกโครงการ, กรอก Item และแปลง");return;}
   const proj=_proj.find(p=>p.id===projId);
   await addDoc(collection(db,"soitems"),{
     projectId:projId,soNo:proj?.soNo||"",projectName:proj?.name||"",
@@ -282,7 +282,7 @@ window.submitSOItem=async()=>{
   toast("เพิ่ม Item สำเร็จ ✓");
 };
 window.advanceStep=async(docId,cur,eng)=>{
-  if(!canEdit("soitems",{createdBy:"",engineer:eng})){alert("ไม่มีสิทธิ์");return;}
+  if(!canEdit("soitems",{createdBy:"",engineer:eng})){toast("ไม่มีสิทธิ์");return;}
   const next=cur+1;if(next>SO_STEPS.length-1){toast("เสร็จสิ้นแล้ว");return;}
   const s=await getDoc(doc(db,"soitems",docId));
   const hist=s.data().stepHistory||[];
@@ -291,7 +291,7 @@ window.advanceStep=async(docId,cur,eng)=>{
   toast("→ "+SO_STEPS[next]);
 };
 window.backStep=async(docId,cur,eng)=>{
-  if(!canEdit("soitems",{createdBy:"",engineer:eng})){alert("ไม่มีสิทธิ์");return;}
+  if(!canEdit("soitems",{createdBy:"",engineer:eng})){toast("ไม่มีสิทธิ์");return;}
   if(cur<=0){toast("อยู่ขั้นแรกแล้ว");return;}
   const prev=cur-1;
   const s=await getDoc(doc(db,"soitems",docId));
@@ -568,7 +568,14 @@ window.exportCSV=async col=>{
   a.click();
 };
 
-function toast(msg){const t=$("toast");t.textContent=msg;t.className="toast show";setTimeout(()=>{t.className="toast";},2800);}
+function toast(msg,isErr){
+  const t=$("toast");
+  t.textContent=msg;
+  t.style.borderColor=isErr?"#f87171":"var(--ac)";
+  t.style.color=isErr?"#f87171":"var(--ac)";
+  t.className="toast show";
+  setTimeout(()=>{t.className="toast";},2800);
+}
 window.addEventListener("keydown",e=>{if(e.key==="Enter"&&$("login-screen").style.display!=="none")doLogin();if(e.key==="Escape")closeModal();});
 </script>
 <style>
