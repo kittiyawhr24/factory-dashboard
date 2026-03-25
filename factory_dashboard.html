@@ -11,7 +11,7 @@ import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged }
 import { getFirestore, collection, addDoc, doc, updateDoc, deleteDoc,
   setDoc, getDoc, query, orderBy, onSnapshot, serverTimestamp, getDocs }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
- 
+
 const firebaseConfig = {
   apiKey:"AIzaSyAbmb86dFbf72b9RwfsiHTZ3b3nGTw_gr4",
   authDomain:"ts-factory-dashboard.firebaseapp.com",
@@ -20,9 +20,9 @@ const firebaseConfig = {
   messagingSenderId:"702665422813",
   appId:"1:702665422813:web:04e2e138d340443a922834"
 };
- 
+
 const app=initializeApp(firebaseConfig), auth=getAuth(app), db=getFirestore(app);
- 
+
 // ── constants ─────────────────────────────────────
 const DEPT={
   "production@factory.com":  {name:"ผลิต",     color:"#60a5fa"},
@@ -32,14 +32,14 @@ const DEPT={
   "manager@factory.com":     {name:"ผู้จัดการ", color:"#a78bfa"},
 };
 const SO_STEPS=["รับ SO","ตรวจเอกสาร","ตรวจหน้างาน","ทำแบบผลิต","แจกจ่ายแบบ","ผลิต/QC","ติดตั้ง","Trial Report","ขึ้นทะเบียน"];
- 
+
 // ── state ─────────────────────────────────────────
 let U=null, isMgr=false;
 let unsubs=[];
 let month=new Date().toISOString().slice(0,7);
 let targetAmt=0, realAmt=0;
 let _ot=[],_qc=[],_prod=[],_so=[],_proj=[],_maint=[],_cnc=[],_mat=[];
- 
+
 // ── helpers ───────────────────────────────────────
 const $=id=>document.getElementById(id);
 const set=(id,v)=>{const e=$(id);if(e)e.textContent=v;};
@@ -49,7 +49,7 @@ const deptColor=name=>(Object.values(DEPT).find(v=>v.name===name)||{color:"#888"
 const dtag=d=>`<span class="dtag" style="background:${deptColor(d)}20;color:${deptColor(d)}">${d}</span>`;
 const myDept=()=>(DEPT[U?.email]||{}).name||"";
 const today=()=>new Date().toISOString().slice(0,10);
- 
+
 // ── can edit/delete ──────────────────────────────
 // Rules: manager=all, each dept owns their own records
 // SO/projects = engineering, QC records = qc, production = ผลิต, maintenance = ซ่อมบำรุง
@@ -57,15 +57,13 @@ const today=()=>new Date().toISOString().slice(0,10);
 function canEdit(colName, d){
   if(isMgr) return true;
   const me=U.email, dept=myDept();
-  if(d.email===me||d.createdBy===me) return true;
-  if(["so","soitems","projects"].includes(colName)&&dept==="วิศวกรรม") return true;
-  if(["qc","mat"].includes(colName)&&dept==="QC") return true;
+  if((d.email&&d.email===me)||(d.createdBy&&d.createdBy===me)) return true;
+  if(["soitems","projects"].includes(colName)&&(dept==="วิศวกรรม"||dept==="QC")) return true;
   if(["prod","cnc"].includes(colName)&&dept==="ผลิต") return true;
-  if(["maint"].includes(colName)&&dept==="ซ่อมบำรุง") return true;
-  if(["ot"].includes(colName)&&dept==="ผลิต") return true;
+  if(colName==="maint"&&dept==="ซ่อมบำรุง") return true;
   return false;
 }
- 
+
 // ── auth ─────────────────────────────────────────
 onAuthStateChanged(auth, user=>{
   if(user){
@@ -89,7 +87,7 @@ window.doLogin=async()=>{
   catch(e){$("login-err").textContent="อีเมลหรือรหัสผ่านไม่ถูกต้อง";}
 };
 window.doLogout=()=>signOut(auth);
- 
+
 // ── tabs ─────────────────────────────────────────
 function initTabs(){
   const tabs=[
@@ -107,7 +105,7 @@ window.showPage=(id,btn)=>{
   document.querySelectorAll(".tab-btn").forEach(b=>b.classList.remove("active"));
   $(id).style.display="block"; if(btn)btn.classList.add("active");
 };
- 
+
 // ── target / ยอดเป้าหมาย ─────────────────────────
 async function loadTarget(){
   try{
@@ -137,7 +135,7 @@ window.saveTarget=async()=>{
     refreshTargetUI(); toast("บันทึกยอดเป้าหมายสำเร็จ ✓");
   }catch(e){alert("Error: "+e.message);}
 };
- 
+
 // ── subscribe all ─────────────────────────────────
 function subscribeAll(){
   const sub=(col,setter,render)=>{
@@ -156,7 +154,7 @@ function subscribeAll(){
   sub("projects",d=>_proj=d,renderProjectList);
   sub("soitems",d=>_so=d,  renderSOItems);
 }
- 
+
 // ── submit forms ──────────────────────────────────
 window.submitLabor=async()=>{
   const date=$("ot-date")?.value;if(!date){alert("กรุณาเลือกวันที่");return;}
@@ -171,7 +169,7 @@ window.submitLabor=async()=>{
   ["ot-hrs","ot-normal","ot-ot","ot-cause","ot-note"].forEach(id=>{const e=$(id);if(e)e.value="";});
   toast("บันทึกค่าแรงสำเร็จ ✓");
 };
- 
+
 window.submitQC=async()=>{
   const date=$("qc-date")?.value,ncrNo=$("qc-no")?.value.trim();
   const product=$("qc-product")?.value.trim();
@@ -190,7 +188,7 @@ window.submitQC=async()=>{
   ["qc-no","qc-product","qc-project","qc-house","qc-plot","qc-defect","qc-qty","qc-action"].forEach(id=>{const e=$(id);if(e)e.value="";});
   toast("บันทึก QC สำเร็จ ✓");
 };
- 
+
 window.submitMat=async()=>{
   const date=$("mat-date")?.value,name=$("mat-name")?.value.trim();
   if(!date||!name){alert("กรุณากรอกวันที่และชื่อวัตถุดิบ");return;}
@@ -206,7 +204,7 @@ window.submitMat=async()=>{
   ["mat-name","mat-code","mat-supplier","mat-qty","mat-qcpct","mat-note"].forEach(id=>{const e=$(id);if(e)e.value="";});
   toast("บันทึกรับวัตถุดิบสำเร็จ ✓");
 };
- 
+
 window.submitProdItem=async()=>{
   const date=$("pi-date")?.value,item=$("pi-item")?.value.trim();
   if(!date||!item){alert("กรุณากรอกวันที่และชื่อ Item");return;}
@@ -225,7 +223,7 @@ window.submitProdItem=async()=>{
   ["pi-item","pi-project","pi-house","pi-plot","pi-planned","pi-actual","pi-manpower","pi-issues","pi-action"].forEach(id=>{const e=$(id);if(e)e.value="";});
   toast("บันทึก Production สำเร็จ ✓");
 };
- 
+
 window.submitCNC=async()=>{
   const date=$("cnc-date")?.value,part=$("cnc-part")?.value.trim();
   if(!date||!part){alert("กรุณากรอกวันที่และชื่อ Part");return;}
@@ -242,7 +240,7 @@ window.submitCNC=async()=>{
   ["cnc-part","cnc-machine","cnc-project","cnc-house","cnc-planned","cnc-actual","cnc-material","cnc-note"].forEach(id=>{const e=$(id);if(e)e.value="";});
   toast("บันทึก CNC สำเร็จ ✓");
 };
- 
+
 window.submitMaint=async()=>{
   const date=$("mt-date")?.value,jobName=$("mt-job")?.value.trim();
   if(!date||!jobName){alert("กรุณากรอกวันที่และชื่องาน");return;}
@@ -258,7 +256,7 @@ window.submitMaint=async()=>{
   ["mt-job","mt-found","mt-cost","mt-note"].forEach(id=>{const e=$(id);if(e)e.value="";});
   toast("บันทึก Maintenance สำเร็จ ✓");
 };
- 
+
 // ── SO ────────────────────────────────────────────
 window.submitProject=async()=>{
   const soNo=$("proj-so")?.value.trim(),name=$("proj-name")?.value.trim();
@@ -302,7 +300,7 @@ window.backStep=async(docId,cur,eng)=>{
   await updateDoc(doc(db,"soitems",docId),{currentStep:prev,stepHistory:hist});
   toast("← ย้อนกลับ: "+SO_STEPS[prev]);
 };
- 
+
 // ── edit modal ────────────────────────────────────
 window.openEdit=(col,docId,fieldsJson)=>{
   const fields=JSON.parse(decodeURIComponent(fieldsJson));
@@ -341,21 +339,25 @@ window.openEdit=(col,docId,fieldsJson)=>{
   $("edit-modal").style.display="flex";
 };
 window.closeModal=()=>{$("edit-modal").style.display="none";};
- 
-window.delDoc=async(col,docId,d)=>{
-  if(!canEdit(col,d)){alert("ไม่มีสิทธิ์ลบ (ลบได้เฉพาะงานตัวเอง)");return;}
+
+window.delDoc=async(col,docId)=>{
+  // find record from live state to check ownership
+  const allMap={ot:_ot,qc:_qc,mat:_mat,prod:_prod,cnc:_cnc,maint:_maint,soitems:_so,projects:_proj};
+  const arr=allMap[col]||[];
+  const record=arr.find(x=>x.id===docId)||{};
+  if(!canEdit(col,record)){alert("ไม่มีสิทธิ์ลบ\nลบได้เฉพาะงานตัวเองหรือตามสิทธิ์แผนก");return;}
   if(!confirm("ยืนยันลบรายการนี้?"))return;
   try{await deleteDoc(doc(db,col,docId));toast("ลบแล้ว ✓");}
   catch(e){alert("ลบไม่ได้: "+e.message);}
 };
- 
+
 function actBtns(col,d){
   if(!canEdit(col,d))return"";
   const enc=encodeURIComponent(JSON.stringify(d));
-  return `<button class="ba be" onclick="openEdit('${col}','${d.id}','${enc}')">✏ แก้ไข</button>
-    <button class="ba bd" onclick="delDoc('${col}','${d.id}',${JSON.stringify(d).replace(/'/g,"&#39;")})">🗑 ลบ</button>`;
+  return `<button class="ba be" onclick="openEdit('${col}','${d.id}','${enc}')">✏ แก้ไข</button>`+
+    `<button class="ba bd" onclick="delDoc('${col}','${d.id}')">🗑 ลบ</button>`;
 }
- 
+
 // ── Dashboard ─────────────────────────────────────
 function renderDash(){
   const m=month;
@@ -365,26 +367,26 @@ function renderDash(){
   const totalL=totalN+totalO;
   const pct=targetAmt>0?((totalL/targetAmt)*100).toFixed(1):null;
   const warn=pct!==null&&parseFloat(pct)>5;
- 
+
   set("d-normal",fmt(totalN)); set("d-ot",fmt(totalO)); set("d-labor",fmt(totalL));
   set("d-target",targetAmt>0?fmt(targetAmt):"ยังไม่ได้กรอก");
   set("d-5pct",targetAmt>0?fmt(targetAmt*0.05)+" บาท":"—");
- 
+
   const pel=$("d-pct"); if(pel){pel.textContent=pct?pct+"%":"—"; pel.style.color=warn?"#f87171":"#6ee7b7";}
   const bar=$("d-bar"); if(bar){bar.style.width=Math.min(100,(pct||0)*10)+"%"; bar.style.background=warn?"#f87171":"#6ee7b7";}
   const wb=$("d-warn"); if(wb)wb.style.display=warn?"block":"none";
- 
+
   // forecast vs real
   const rpct=targetAmt>0?((realAmt/targetAmt)*100).toFixed(1):null;
   set("d-real",realAmt>0?fmt(realAmt)+" บาท":"ยังไม่ได้กรอก");
   set("d-target2",targetAmt>0?fmt(targetAmt)+" บาท":"—");
   set("d-rpct",rpct?rpct+"%":"—");
   const rp=$("d-rpct"); if(rp&&rpct)rp.style.color=parseFloat(rpct)>=100?"#6ee7b7":parseFloat(rpct)>=80?"#fbbf24":"#f87171";
- 
+
   // NCR/QC open
   const openQC=_qc.filter(d=>d.status==="เปิด").length;
   set("d-qc-open",openQC); set("d-qc-total",_qc.length);
- 
+
   // Production today
   const tod=today();
   const todProd=_prod.filter(d=>d.date===tod);
@@ -393,23 +395,23 @@ function renderDash(){
   set("d-prod-plan",pl); set("d-prod-actual",ac);
   set("d-prod-pct",pl>0?Math.round(ac/pl*100)+"%":"—");
   const pb=$("d-prod-bar");if(pb){pb.style.width=pl>0?Math.min(100,Math.round(ac/pl*100))+"%":"0%"; pb.style.background=ac/pl>=.9?"#6ee7b7":ac/pl>=.7?"#fbbf24":"#f87171";}
- 
+
   // SO items
   set("d-so-total",_so.length);
   set("d-so-done",_so.filter(d=>(d.currentStep||0)>=SO_STEPS.length-1).length);
   set("d-so-inprog",_so.filter(d=>(d.currentStep||0)>0&&(d.currentStep||0)<SO_STEPS.length-1).length);
- 
+
   // Maintenance
   const pendMaint=_maint.filter(d=>d.status==="รออะไหล่").length;
   set("d-maint-pend",pendMaint); set("d-maint-total",_maint.length);
- 
+
   // CNC today
   const todCNC=_cnc.filter(d=>d.date===tod);
   const cp=todCNC.reduce((s,d)=>s+(d.planned||0),0);
   const ca=todCNC.reduce((s,d)=>s+(d.actual||0),0);
   set("d-cnc-plan",cp); set("d-cnc-actual",ca);
 }
- 
+
 // ── render tables ─────────────────────────────────
 function renderLaborTable(d){
   $("ot-tbody").innerHTML=d.length?d.slice(0,60).map(r=>`<tr>
@@ -421,7 +423,7 @@ function renderLaborTable(d){
     <td style="font-size:11px">${r.cause||""}</td>
     <td>${actBtns("ot",r)}</td></tr>`).join(""):noData(8);
 }
- 
+
 function renderQCTable(d){
   const open=d.filter(r=>r.status==="เปิด").length;
   set("qc-badge",open+" รายการเปิด");
@@ -446,7 +448,7 @@ function renderQCTable(d){
     <td style="font-size:11px">${r.note||""}</td>
     <td>${actBtns("mat",r)}</td></tr>`).join(""):noData(8);
 }
- 
+
 function renderProdTable(d){
   const todItems=d.filter(r=>r.date===today());
   const tPlan=todItems.reduce((s,r)=>s+(r.planned||0),0);
@@ -464,7 +466,7 @@ function renderProdTable(d){
     <td style="font-size:11px">${r.issues||"—"}</td>
     <td>${actBtns("prod",r)}</td></tr>`).join(""):noData(11);
 }
- 
+
 function renderCNCTable(d){
   $("cnc-tbody").innerHTML=d.length?d.slice(0,60).map(r=>`<tr>
     <td>${r.date||""}</td>
@@ -481,7 +483,7 @@ function renderCNCTable(d){
     <td style="font-size:11px">${r.note||""}</td>
     <td>${actBtns("cnc",r)}</td></tr>`).join(""):noData(11);
 }
- 
+
 function renderMaintTable(d){
   $("maint-tbody").innerHTML=d.length?d.slice(0,60).map(r=>`<tr>
     <td>${r.date||""}</td>
@@ -493,17 +495,17 @@ function renderMaintTable(d){
     <td style="font-size:11px">${r.note||""}</td>
     <td>${actBtns("maint",r)}</td></tr>`).join(""):noData(8);
 }
- 
+
 function renderProjectList(projects){
   // update selects
   const opts='<option value="">-- เลือกโครงการ --</option>'+projects.map(p=>`<option value="${p.id}">${p.soNo} — ${p.name}</option>`).join("");
   ["item-project","filter-proj"].forEach(id=>{const e=$(id);if(e){const v=e.value;e.innerHTML=opts;e.value=v;}});
- 
+
   const tbl=$("proj-tbody");if(!tbl)return;
   tbl.innerHTML=projects.length?projects.map(p=>{
     const items=_so.filter(s=>s.projectId===p.id);
     const done=items.filter(s=>(s.currentStep||0)>=SO_STEPS.length-1).length;
-    const enc=encodeURIComponent(JSON.stringify({...p,email:p.createdBy}));
+    const enc=encodeURIComponent(JSON.stringify({...p,email:p.createdBy||p.email||""}));
     return `<tr>
       <td style="font-family:var(--mono);font-size:11px">${p.soNo||""}</td>
       <td style="font-weight:500">${p.name||""}</td>
@@ -511,13 +513,13 @@ function renderProjectList(projects){
       <td style="font-family:var(--mono);color:#6ee7b7">${done}</td>
       <td style="font-size:11px">${p.note||"—"}</td>
       <td><button class="ba be" onclick="openEdit('projects','${p.id}','${enc}')">✏ แก้ไข</button>
-          <button class="ba bd" onclick="delDoc('projects','${p.id}',${JSON.stringify({...p,email:p.createdBy}).replace(/'/g,"&#39;")})">🗑 ลบ</button></td>
+          <button class="ba bd" onclick="delDoc('projects','${p.id}')">🗑 ลบ</button></td>
     </tr>`;
   }).join(""):noData(6);
 }
- 
+
 const stepColor=i=>i<=1?"#6b7280":i<=3?"#60a5fa":i<=5?"#fbbf24":i<=7?"#a78bfa":"#6ee7b7";
- 
+
 function renderSOItems(docs){
   set("so-total",docs.length);
   set("so-done",docs.filter(d=>(d.currentStep||0)>=SO_STEPS.length-1).length);
@@ -526,7 +528,7 @@ function renderSOItems(docs){
   const filtered=fp?docs.filter(d=>d.projectId===fp):docs;
   $("so-tbody").innerHTML=filtered.length?filtered.map(d=>{
     const step=d.currentStep||0,label=SO_STEPS[step],pct=Math.round(step/(SO_STEPS.length-1)*100);
-    const enc=encodeURIComponent(JSON.stringify({...d,email:d.createdBy}));
+    const enc=encodeURIComponent(JSON.stringify({...d,email:d.createdBy||d.email||""}));
     const ok=canEdit("soitems",{...d,email:d.createdBy});
     return `<tr>
       <td style="font-size:11px;color:var(--muted)">${d.soNo||""}</td>
@@ -547,14 +549,14 @@ function renderSOItems(docs){
         ${ok&&step<SO_STEPS.length-1?`<button class="ba bo" onclick="advanceStep('${d.id}',${step},'${d.engineer||d.createdBy||""}')">▶ ถัดไป</button>`:""}
         ${ok&&step>0?`<button class="ba bc" onclick="backStep('${d.id}',${step},'${d.engineer||d.createdBy||""}')">◀ ย้อนกลับ</button>`:""}
         ${ok?`<button class="ba be" onclick="openEdit('soitems','${d.id}','${enc}')">✏ แก้ไข</button>`:""}
-        ${ok?`<button class="ba bd" onclick="delDoc('soitems','${d.id}',${JSON.stringify({...d,email:d.createdBy}).replace(/'/g,"&#39;")})">🗑 ลบ</button>`:""}
+        ${ok?`<button class="ba bd" onclick="delDoc('soitems','${d.id}')">🗑 ลบ</button>`:""}
       </td>
     </tr>`;
   }).join(""):noData(9);
 }
- 
+
 window.filterSO=()=>renderSOItems(_so);
- 
+
 // ── export ────────────────────────────────────────
 window.exportCSV=async col=>{
   const snap=await getDocs(collection(db,col));
@@ -565,7 +567,7 @@ window.exportCSV=async col=>{
   const a=Object.assign(document.createElement("a"),{href:URL.createObjectURL(new Blob(["\uFEFF"+csv],{type:"text/csv;charset=utf-8"})),download:`${col}_${today()}.csv`});
   a.click();
 };
- 
+
 function toast(msg){const t=$("toast");t.textContent=msg;t.className="toast show";setTimeout(()=>{t.className="toast";},2800);}
 window.addEventListener("keydown",e=>{if(e.key==="Enter"&&$("login-screen").style.display!=="none")doLogin();if(e.key==="Escape")closeModal();});
 </script>
@@ -669,7 +671,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
 </style>
 </head>
 <body>
- 
+
 <!-- LOGIN -->
 <div id="login-screen">
   <div class="lb">
@@ -680,13 +682,13 @@ tr:hover td{background:rgba(255,255,255,.02)}
     <button class="btn-lg" onclick="doLogin()">เข้าสู่ระบบ</button>
     <div id="login-err"></div>
     <div class="hint">
-      <code>manager@factory.com</code><br><code>production@factory.com</code><br>
-      <code>qc@factory.com</code><br><code>engineering@factory.com</code><br>
-      <code>maintenance@factory.com</code>
+      <code><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="2a474b444b4d4f586a4c4b495e45585304494547">[email&#160;protected]</a></code><br><code><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="94e4e6fbf0e1f7e0fdfbfad4f2f5f7e0fbe6edbaf7fbf9">[email&#160;protected]</a></code><br>
+      <code><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="3c4d5f7c5a5d5f48534e45125f5351">[email&#160;protected]</a></code><br><code><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="21444f46484f444453484f4661474042554e53580f424e4c">[email&#160;protected]</a></code><br>
+      <code><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="81ece0e8eff5e4efe0efe2e4c1e7e0e2f5eef3f8afe2eeec">[email&#160;protected]</a></code>
     </div>
   </div>
 </div>
- 
+
 <!-- APP -->
 <div id="app">
   <div class="topbar">
@@ -698,11 +700,11 @@ tr:hover td{background:rgba(255,255,255,.02)}
   </div>
   <div id="tabs"></div>
   <div class="content">
- 
+
   <!-- ══ DASHBOARD ══════════════════════════════════ -->
   <div id="pg-dash" class="page">
     <div class="pt">Dashboard — ภาพรวมโรงงาน</div>
- 
+
     <!-- labor vs target -->
     <div class="card">
       <div class="ct">ค่าแรงพนักงาน vs ยอดเป้าหมาย (เดือนนี้)</div>
@@ -717,7 +719,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
       <div class="warn-box" id="d-warn">ค่าแรงรวมเกิน 5% ของยอดเป้าหมายแล้ว</div>
       <div style="font-size:11px;color:var(--muted);margin-top:6px">เพดาน 5% = <span id="d-5pct">—</span></div>
     </div>
- 
+
     <!-- forecast vs real -->
     <div class="card">
       <div class="ct">ยอดเป้าหมาย vs ยอดจริงที่เก็บได้</div>
@@ -727,7 +729,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
         <div class="kc"><div class="kl">% ยอดจริง/เป้าหมาย</div><div class="kv" id="d-rpct">—</div></div>
       </div>
     </div>
- 
+
     <!-- modules summary -->
     <div class="g3">
       <div class="card">
@@ -772,7 +774,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
       </div>
     </div>
   </div>
- 
+
   <!-- ══ SALE ORDER ══════════════════════════════════ -->
   <div id="pg-so" class="page">
     <div class="pt">Sale Order Tracking</div>
@@ -785,15 +787,15 @@ tr:hover td{background:rgba(255,255,255,.02)}
       <div style="display:flex;flex-wrap:wrap;gap:10px;font-size:11px">
         <span style="color:var(--muted)">ขั้นตอน:</span>
         <span style="color:#6b7280">● รับ SO</span><span style="color:#60a5fa">● ตรวจสอบ</span>
-        <span style="color:#fbbf24">● ทำแบบผลิต</span><span style="color:#a78bfa">● ติดตั้ง</span>
-        <span style="color:#a78bfa">● สรุป Trial</span><span style="color:#6ee7b7">● เสร็จสิ้น ✓</span>
+        <span style="color:#fbbf24">● ทำแบบ/ผลิต</span><span style="color:#a78bfa">● ติดตั้ง</span>
+        <span style="color:#6ee7b7">● เสร็จสิ้น ✓</span>
       </div>
     </div>
-    <div class="sdiv">โครงการใหม่ (บ้านตัวอย่าง)</div>
+    <div class="sdiv">สร้างโครงการใหม่</div>
     <div class="card">
       <div class="fgrid">
-        <div class="fg"><label>เลขที่เอกสาร SO *</label><input id="proj-so" type="text" placeholder="SO2569/00000"></div>
-        <div class="fg"><label>ชื่อโครงการ *</label><input id="proj-name" type="text" placeholder="เช่น บุราสิริ พระราม 9"></div>
+        <div class="fg"><label>SO Number *</label><input id="proj-so" type="text" placeholder="SO-2026-001"></div>
+        <div class="fg"><label>ชื่อโครงการ *</label><input id="proj-name" type="text" placeholder="เช่น ศุภาลัย พาร์ค"></div>
         <div class="fg full"><label>หมายเหตุ</label><input id="proj-note" type="text" placeholder="รายละเอียด"></div>
       </div>
       <button class="btn-s" onclick="submitProject()">+ สร้างโครงการ</button>
@@ -804,14 +806,14 @@ tr:hover td{background:rgba(255,255,255,.02)}
     </div>
     <div class="sdiv">เพิ่ม Item เข้าโครงการ</div>
     <div class="card">
-      <div class="info-box">รายละเอียดงาน</div>
+      <div class="info-box">1 โครงการ มีหลาย Item — เช่น ราวบันได S340, ระเบียง S308 แต่ละ Item ติดตาม 9 ขั้นตอนแยกกัน</div>
       <div class="fgrid">
         <div class="fg"><label>โครงการ *</label><select id="item-project"><option value="">-- เลือกโครงการ --</option></select></div>
-        <div class="fg"><label>Item *</label><input id="item-code" type="text" placeholder="เช่น ราวบันได "></div>
-        <div class="fg"><label>Type </label><input id="item-house" type="text" placeholder="เช่น S308B"></div>
-        <div class="fg"><label>แปลง *</label><input id="item-plot" type="text" placeholder="เช่น 62"></div>
-        <div class="fg"><label>แผนติดตั้ง</label><input id="item-plan-date" type="date"></div>
-        <div class="fg"><label>ผู้รับผิดชอบ</label><input id="item-engineer" type="text" placeholder="ชื่อเจ้าหน้าที่เขียนแบบ"></div>
+        <div class="fg"><label>Item / รหัสสินค้า *</label><input id="item-code" type="text" placeholder="เช่น ราวบันได S340"></div>
+        <div class="fg"><label>Type แบบบ้าน</label><input id="item-house" type="text" placeholder="เช่น Type A 2ชั้น"></div>
+        <div class="fg"><label>แปลงที่ *</label><input id="item-plot" type="text" placeholder="เช่น A101"></div>
+        <div class="fg"><label>วันแผนติดตั้ง</label><input id="item-plan-date" type="date"></div>
+        <div class="fg"><label>วิศวกรผู้รับผิดชอบ</label><input id="item-engineer" type="text" placeholder="ชื่อวิศวกร"></div>
       </div>
       <button class="btn-s" onclick="submitSOItem()">+ เพิ่ม Item</button>
     </div>
@@ -823,10 +825,10 @@ tr:hover td{background:rgba(255,255,255,.02)}
           <option value="">ทั้งหมด</option>
         </select>
       </div>
-      <div class="tw"><table><thead><tr><th>SO</th><th>โครงการ</th><th>Item</th><th>แบบบ้าน</th><th>แปลง</th><th>แผน</th><th>ผู้รับผิดชอบ</th><th>สถานะ</th><th>จัดการ</th></tr></thead><tbody id="so-tbody"></tbody></table></div>
+      <div class="tw"><table><thead><tr><th>SO</th><th>โครงการ</th><th>Item</th><th>แบบบ้าน</th><th>แปลง</th><th>แผน</th><th>วิศวกร</th><th>สถานะ</th><th>จัดการ</th></tr></thead><tbody id="so-tbody"></tbody></table></div>
     </div>
   </div>
- 
+
   <!-- ══ ค่าแรง ══════════════════════════════════════ -->
   <div id="pg-labor" class="page">
     <div class="pt">ค่าแรงพนักงาน</div>
@@ -837,8 +839,8 @@ tr:hover td{background:rgba(255,255,255,.02)}
         <div class="fg"><label>ชั่วโมง OT</label><input id="ot-hrs" type="number" placeholder="2.5" min="0" step="0.5"></div>
         <div class="fg"><label>ค่าแรงปกติ 8ชม. (บ./วัน)</label><input id="ot-normal" type="number" placeholder="8000" min="0"></div>
         <div class="fg"><label>ค่าแรง OT (บ./วัน)</label><input id="ot-ot" type="number" placeholder="1500" min="0"></div>
-        <div class="fg full"><label>สาเหตุ OT</label><input id="ot-cause" type="text" placeholder="ระบุสาเหตุ"></div>
-        <div class="fg full"><label>หมายเหตุ</label><input id="ot-note" type="text" placeholder="รายละเอียดเพิ่มเติม"></div>
+        <div class="fg full"><label>สาเหตุ OT</label><input id="ot-cause" type="text" placeholder="พิมพ์สาเหตุ OT หรือหมายเหตุ"></div>
+        <div class="fg full"><label>หมายเหตุเพิ่มเติม</label><input id="ot-note" type="text" placeholder="รายละเอียด"></div>
       </div>
       <button class="btn-s" onclick="submitLabor()">+ บันทึกค่าแรง</button>
     </div>
@@ -846,11 +848,11 @@ tr:hover td{background:rgba(255,255,255,.02)}
       <div class="tw"><table><thead><tr><th>วันที่</th><th>แผนก</th><th>ชม. OT</th><th>ปกติ (บ.)</th><th>OT (บ.)</th><th>รวม (บ.)</th><th>สาเหตุ</th><th>จัดการ</th></tr></thead><tbody id="ot-tbody"></tbody></table></div>
     </div>
   </div>
- 
+
   <!-- ══ QC ══════════════════════════════════════════ -->
   <div id="pg-qc" class="page">
     <div class="pt">QC <span class="badge badge-r" id="qc-badge">0 รายการเปิด</span></div>
- 
+
     <div class="sdiv">บันทึก NCR</div>
     <div class="card">
       <div class="fgrid">
@@ -859,7 +861,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
         <div class="fg"><label>ชื่อสินค้า/งาน *</label><input id="qc-product" type="text" placeholder="เช่น ราวบันได A01"></div>
         <div class="fg"><label>ชื่อโครงการ</label><input id="qc-project" type="text" placeholder="ชื่อโครงการ"></div>
         <div class="fg"><label>แบบบ้าน</label><input id="qc-house" type="text" placeholder="Type A / 2ชั้น"></div>
-        <div class="fg"><label>แปลง</label><input id="qc-plot" type="text" placeholder="เช่น 62"></div>
+        <div class="fg"><label>แปลงที่</label><input id="qc-plot" type="text" placeholder="A101"></div>
         <div class="fg full"><label>ลักษณะของเสีย/สาเหตุ</label><input id="qc-defect" type="text" placeholder="เช่น รอยเชื่อมไม่สม่ำเสมอ"></div>
         <div class="fg"><label>จำนวน (ชิ้น)</label><input id="qc-qty" type="number" placeholder="1" min="0"></div>
         <div class="fg"><label>ระดับความรุนแรง</label><select id="qc-severity"><option>สูง</option><option selected>กลาง</option><option>ต่ำ</option></select></div>
@@ -870,7 +872,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
     <div class="card"><div class="ct">รายการ NCR</div>
       <div class="tw"><table><thead><tr><th>NCR No.</th><th>วันที่</th><th>แผนก</th><th>โครงการ</th><th>แบบบ้าน</th><th>แปลง</th><th>สินค้า</th><th>ของเสีย</th><th>จำนวน</th><th>ระดับ</th><th>สถานะ</th><th>จัดการ</th></tr></thead><tbody id="qc-tbody"></tbody></table></div>
     </div>
- 
+
     <div class="sdiv">รับวัตถุดิบ</div>
     <div class="card">
       <div class="fgrid">
@@ -889,7 +891,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
       <div class="tw"><table><thead><tr><th>วันที่</th><th>วัตถุดิบ</th><th>รหัส</th><th>ผู้ขาย</th><th>จำนวน</th><th>% QC</th><th>หมายเหตุ</th><th>จัดการ</th></tr></thead><tbody id="mat-tbody"></tbody></table></div>
     </div>
   </div>
- 
+
   <!-- ══ PRODUCTION ══════════════════════════════════ -->
   <div id="pg-prod" class="page">
     <div class="pt">Production</div>
@@ -905,7 +907,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
         <div class="fg"><label>Item / รายการผลิต *</label><input id="pi-item" type="text" placeholder="เช่น ราวบันได, ระเบียง, ประตู"></div>
         <div class="fg"><label>โครงการ</label><input id="pi-project" type="text" placeholder="ชื่อโครงการ"></div>
         <div class="fg"><label>แบบบ้าน</label><input id="pi-house" type="text" placeholder="Type A / S340"></div>
-        <div class="fg"><label>แปลง</label><input id="pi-plot" type="text" placeholder="เช่น 62"></div>
+        <div class="fg"><label>แปลงที่</label><input id="pi-plot" type="text" placeholder="เช่น A101"></div>
         <div class="fg"><label>แผน (ชิ้น)</label><input id="pi-planned" type="number" placeholder="5" min="0"></div>
         <div class="fg"><label>ผลิตจริง (ชิ้น)</label><input id="pi-actual" type="number" placeholder="4" min="0"></div>
         <div class="fg full"><label>ปัญหาที่พบ (Morning Talk)</label><textarea id="pi-issues" placeholder="รายงานปัญหาที่พบ"></textarea></div>
@@ -917,7 +919,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
       <div class="tw"><table><thead><tr><th>วันที่</th><th>แผนก</th><th>Item</th><th>โครงการ</th><th>แบบบ้าน</th><th>แปลง</th><th>แผน</th><th>จริง</th><th>คน</th><th>ปัญหา</th><th>จัดการ</th></tr></thead><tbody id="prod-tbody"></tbody></table></div>
     </div>
   </div>
- 
+
   <!-- ══ CNC ══════════════════════════════════════════ -->
   <div id="pg-cnc" class="page">
     <div class="pt">CNC Production</div>
@@ -939,7 +941,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
       <div class="tw"><table><thead><tr><th>วันที่</th><th>Part/รหัส</th><th>เครื่อง</th><th>โครงการ</th><th>แบบบ้าน</th><th>แผน</th><th>จริง</th><th>%</th><th>วัสดุ</th><th>หมายเหตุ</th><th>จัดการ</th></tr></thead><tbody id="cnc-tbody"></tbody></table></div>
     </div>
   </div>
- 
+
   <!-- ══ MAINTENANCE ══════════════════════════════════ -->
   <div id="pg-maint" class="page">
     <div class="pt">Maintenance</div>
@@ -967,7 +969,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
       <div class="tw"><table><thead><tr><th>วันที่</th><th>ชื่องาน</th><th>ประเภท</th><th>วันพบ</th><th>ค่าใช้จ่าย</th><th>สถานะ</th><th>หมายเหตุ</th><th>จัดการ</th></tr></thead><tbody id="maint-tbody"></tbody></table></div>
     </div>
   </div>
- 
+
   <!-- ══ ยอดเป้าหมาย (Manager) ════════════════════════ -->
   <div id="pg-target" class="page">
     <div class="pt">ยอดเป้าหมาย (เฉพาะผู้จัดการ)</div>
@@ -989,7 +991,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
       </div>
     </div>
   </div>
- 
+
   <!-- ══ EXPORT ══════════════════════════════════════ -->
   <div id="pg-export" class="page">
     <div class="pt">Export ข้อมูล</div>
@@ -1007,10 +1009,10 @@ tr:hover td{background:rgba(255,255,255,.02)}
       <button class="btn-exp" onclick="window.print()">🖨 Print ทั้งหน้า</button>
     </div>
   </div>
- 
+
   </div><!-- end content -->
 </div><!-- end app -->
- 
+
 <!-- EDIT MODAL -->
 <div id="edit-modal">
   <div class="mb">
@@ -1023,23 +1025,9 @@ tr:hover td{background:rgba(255,255,255,.02)}
   </div>
 </div>
 <div id="toast" class="toast"></div>
- 
-<script>
+
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
 document.addEventListener("DOMContentLoaded",()=>{
   const t=new Date().toISOString().slice(0,10);
   const m=t.slice(0,7);
-  ["ot-date","qc-date","mat-date","pi-date","cnc-date","mt-date","mt-found"].forEach(id=>{
-    const e=document.getElementById(id); if(e)e.value=t;
-  });
-  ["ti-month"].forEach(id=>{const e=document.getElementById(id);if(e)e.value=m;});
-  // perm info
-  setTimeout(()=>{
-    const el=document.getElementById("perm-info");
-    if(!el)return;
-    const lines=["ผู้จัดการ: แก้ไข/ลบได้ทั้งหมด","Engineering: Sale Order","QC: NCR/วัตถุดิบ","ผลิต: Production/CNC/ค่าแรง","ซ่อมบำรุง: Maintenance","ทุกคน: ลบ/แก้ไขได้เฉพาะของตัวเอง"];
-    el.innerHTML=lines.join("<br>");
-  },500);
-});
-</script>
-</body>
-</html>
+  ["ot-date","qc-date","mat-date","pi-date",
