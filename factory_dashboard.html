@@ -138,21 +138,21 @@ window.saveTarget=async()=>{
 
 // ── subscribe all ─────────────────────────────────
 function subscribeAll(){
-  const sub=(col,setter,render)=>{
+  const sub=(col,fn)=>{
     const u=onSnapshot(query(collection(db,col),orderBy("ts","desc")),s=>{
       const d=s.docs.map(x=>({id:x.id,...x.data()}));
-      setter(d); render(d); renderDash();
+      fn(d);
     });
     unsubs.push(u);
   };
-  sub("ot",   d=>_ot=d,   renderLaborTable);
-  sub("qc",   d=>_qc=d,   renderQCTable);
-  sub("prod",  d=>_prod=d,  renderProdTable);
-  sub("maint", d=>_maint=d, renderMaintTable);
-  sub("cnc",   d=>_cnc=d,   renderCNCTable);
-  sub("mat",   d=>_mat=d,   renderMatTable);
-  sub("projects",d=>_proj=d,renderProjectList);
-  sub("soitems",d=>_so=d,  renderSOItems);
+  sub("ot",   d=>{_ot=d;   renderLaborTable(d);renderDash();});
+  sub("qc",   d=>{_qc=d;   renderQCTable(d);renderDash();});
+  sub("prod",  d=>{_prod=d;  renderProdTable(d);renderDash();});
+  sub("maint", d=>{_maint=d; renderMaintTable(d);renderDash();});
+  sub("cnc",   d=>{_cnc=d;   renderCNCTable(d);renderDash();});
+  sub("mat",   d=>{_mat=d;   renderMatTable(d);renderDash();});
+  sub("projects",d=>{_proj=d;renderProjectList(d);renderSOItems(_so);renderDash();});
+  sub("soitems",d=>{_so=d;renderSOItems(d);renderProjectList(_proj);renderDash();});
 }
 
 // ── submit forms ──────────────────────────────────
