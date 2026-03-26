@@ -858,29 +858,57 @@ tr:hover td{background:rgba(255,255,255,.02)}
 
   <!-- ══ QC ══════════════════════════════════════════ -->
   <div id="pg-qc" class="page">
-    <div class="pt">QC <span class="badge badge-r" id="qc-badge">0 รายการ</span></div>
+    <div class="pt">QC <span class="badge badge-r" id="qc-badge">0 รายการเปิด</span></div>
 
-    <div class="sdiv">บันทึก NCR</div>
+    <div class="sdiv">บันทึก NCR ใหม่</div>
     <div class="card">
       <div class="fgrid">
         <div class="fg"><label>เลข NCR *</label><input id="qc-no" type="text" placeholder="NCR-2026-001"></div>
         <div class="fg"><label>วันที่ *</label><input id="qc-date" type="date"></div>
         <div class="fg"><label>ชื่อสินค้า/งาน *</label><input id="qc-product" type="text" placeholder="เช่น ราวบันได A01"></div>
         <div class="fg"><label>ชื่อโครงการ</label><input id="qc-project" type="text" placeholder="ชื่อโครงการ"></div>
-        <div class="fg"><label>แบบบ้าน</label><input id="qc-house" type="text" placeholder="เช่น S308B"></div>
-        <div class="fg"><label>แปลง</label><input id="qc-plot" type="text" placeholder="เช่น 62"></div>
-        <div class="fg full"><label>ลักษณะของเสีย/สาเหตุ</label><input id="qc-defect" type="text" placeholder="เช่น รอยเชื่อมไม่สม่ำเสมอ"></div>
+        <div class="fg"><label>แบบบ้าน</label><input id="qc-house" type="text" placeholder="Type A / 2ชั้น"></div>
+        <div class="fg"><label>แปลงที่</label><input id="qc-plot" type="text" placeholder="A101"></div>
+        <div class="fg full"><label>ลักษณะของเสีย / อาการ</label><input id="qc-defect" type="text" placeholder="เช่น รอยเชื่อมไม่สม่ำเสมอ"></div>
+        <div class="fg full"><label>สาเหตุที่แท้จริง (Root Cause)</label><input id="qc-rootcause" type="text" placeholder="เช่น ตั้งค่าเครื่องเชื่อมผิด / พนักงานขาดการอบรม"></div>
         <div class="fg"><label>จำนวน (ชิ้น)</label><input id="qc-qty" type="number" placeholder="1" min="0"></div>
-        <div class="fg"><label>ระดับความรุนแรง</label><select id="qc-severity"><option>สูง</option><option selected>กลาง</option><option>ต่ำ</option></select></div>
-        <div class="fg full"><label>แนวทางแก้ไข</label><input id="qc-action" type="text" placeholder="วิธีแก้ไข / แผนป้องกัน"></div>
+        <div class="fg"><label>ระดับความรุนแรง</label>
+          <select id="qc-severity"><option>สูง</option><option selected>กลาง</option><option>ต่ำ</option></select>
+        </div>
+        <div class="fg full"><label>แผนการแก้ไข (Action Plan)</label><textarea id="qc-action" placeholder="ระบุแผนและวิธีการแก้ไข"></textarea></div>
+        <div class="fg"><label>วันกำหนดแก้ไขเสร็จ</label><input id="qc-duedate" type="date"></div>
+        <div class="fg"><label>ผู้รับผิดชอบแก้ไข</label><input id="qc-owner" type="text" placeholder="ชื่อผู้รับผิดชอบ"></div>
       </div>
       <button class="btn-s" onclick="submitQC()">+ บันทึก NCR</button>
     </div>
-    <div class="card"><div class="ct">รายการ NCR</div>
-      <div class="tw"><table><thead><tr><th>NCR No.</th><th>วันที่</th><th>แผนก</th><th>โครงการ</th><th>แบบบ้าน</th><th>แปลง</th><th>สินค้า</th><th>ของเสีย</th><th>จำนวน</th><th>ระดับ</th><th>สถานะ</th><th>จัดการ</th></tr></thead><tbody id="qc-tbody"></tbody></table></div>
+
+    <div class="sdiv">รายการ NCR ทั้งหมด</div>
+    <div class="card" id="ncr-table-section">
+      <!-- Status filter -->
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
+        <button class="ncr-filter-btn active" onclick="filterNCR('all',this)">ทั้งหมด</button>
+        <button class="ncr-filter-btn" onclick="filterNCR('เปิด',this)">🔴 เปิด</button>
+        <button class="ncr-filter-btn" onclick="filterNCR('กำลังแก้ไข',this)">🟡 กำลังแก้ไข</button>
+        <button class="ncr-filter-btn" onclick="filterNCR('รอตรวจสอบ',this)">🔵 รอตรวจสอบ</button>
+        <button class="ncr-filter-btn" onclick="filterNCR('ปิด',this)">🟢 ปิดแล้ว</button>
+      </div>
+      <div class="tw">
+        <table>
+          <thead>
+            <tr>
+              <th>NCR No.</th><th>วันที่</th><th>แผนก</th><th>โครงการ</th>
+              <th>แบบบ้าน</th><th>แปลง</th><th>สินค้า/งาน</th><th>ของเสีย</th>
+              <th>Root Cause</th><th>Action Plan</th><th>ผู้รับผิดชอบ</th>
+              <th>กำหนดเสร็จ</th><th>จำนวน</th><th>ระดับ</th>
+              <th>สถานะ</th><th>จัดการ</th>
+            </tr>
+          </thead>
+          <tbody id="qc-tbody"></tbody>
+        </table>
+      </div>
     </div>
 
-    <div class="sdiv">รายการรับวัตถุดิบ/Material (Incoming QC Record)</div>
+    <div class="sdiv">รับวัตถุดิบ</div>
     <div class="card">
       <div class="fgrid">
         <div class="fg"><label>วันที่ *</label><input id="mat-date" type="date"></div>
@@ -888,14 +916,22 @@ tr:hover td{background:rgba(255,255,255,.02)}
         <div class="fg"><label>รหัส</label><input id="mat-code" type="text" placeholder="รหัสวัตถุดิบ"></div>
         <div class="fg"><label>ผู้ขาย/ผู้ส่ง</label><input id="mat-supplier" type="text" placeholder="ชื่อ supplier"></div>
         <div class="fg"><label>จำนวนที่รับ</label><input id="mat-qty" type="number" placeholder="100" min="0"></div>
-        <div class="fg"><label>หน่วย</label><select id="mat-unit"><option>ชิ้น</option><option>kg</option><option>m</option><option>แผ่น</option><option>ม้วน</option></select></div>
-        <div class="fg"><label>จำนวนที่ผ่าน QC</label><input id="mat-qcpct" type="number" placeholder="100" min="0" max="100"></div>
+        <div class="fg"><label>หน่วย</label>
+          <select id="mat-unit"><option>ชิ้น</option><option>kg</option><option>m</option><option>แผ่น</option><option>ม้วน</option></select>
+        </div>
+        <div class="fg"><label>% ผ่าน QC</label><input id="mat-qcpct" type="number" placeholder="100" min="0" max="100"></div>
         <div class="fg"><label>หมายเหตุ</label><input id="mat-note" type="text" placeholder=""></div>
       </div>
       <button class="btn-s" onclick="submitMat()">+ บันทึกรับวัตถุดิบ</button>
     </div>
-    <div class="card"><div class="ct">ประวัติรับวัตถุดิบ</div>
-      <div class="tw"><table><thead><tr><th>วันที่</th><th>วัตถุดิบ</th><th>รหัส</th><th>ผู้ขาย</th><th>จำนวน</th><th>จำนวนที่ผ่าน QC</th><th>หมายเหตุ</th><th>จัดการ</th></tr></thead><tbody id="mat-tbody"></tbody></table></div>
+    <div class="card">
+      <div class="ct">ประวัติรับวัตถุดิบ</div>
+      <div class="tw">
+        <table>
+          <thead><tr><th>วันที่</th><th>วัตถุดิบ</th><th>รหัส</th><th>ผู้ขาย</th><th>จำนวน</th><th>% QC</th><th>หมายเหตุ</th><th>จัดการ</th></tr></thead>
+          <tbody id="mat-tbody"></tbody>
+        </table>
+      </div>
     </div>
   </div>
 
