@@ -170,23 +170,71 @@ window.submitLabor=async()=>{
   toast("บันทึกค่าแรงสำเร็จ ✓");
 };
 
+// ── NCR Status ───────────────────────────────────
+const NCR_STEPS=["เปิด","กำลังแก้ไข","รอตรวจสอบ","ปิด"];
+const NCR_COLORS={"เปิด":"#f87171","กำลังแก้ไข":"#fbbf24","รอตรวจสอบ":"#60a5fa","ปิด":"#6ee7b7"};
+let _ncrFilter="all";
+
+window.filterNCR=(status,btn)=>{
+  _ncrFilter=status;
+  document.querySelectorAll(".ncr-filter-btn").forEach(b=>b.classList.remove("active"));
+  btn.classList.add("active");
+  renderQCTable(_qc);
+};
+
+window.advanceNCR=async(docId,currentStatus)=>{
+  const idx=NCR_STEPS.indexOf(currentStatus);
+  if(idx<0||idx>=NCR_STEPS.length-1){toast("NCR นี้ปิดแล้ว");return;}
+  const next=NCR_STEPS[idx+1];
+  const msg=next==="ปิด"?"ยืนยันปิด NCR? (ยืนยันว่าแก้ไขเรียบร้อยแล้ว)":"เลื่อนสถานะเป็น \""+next+"\" ?";
+  if(!confirm(msg))return;
+  try{
+    const now=new Date().toISOString();
+    const upd={status:next,updatedBy:U.email,updatedAt:serverTimestamp()};
+    upd["statusLog."+next]=now;
+    if(next==="ปิด"){upd.closedAt=now;upd.closedBy=U.email;}
+    await updateDoc(doc(db,"qc",docId),upd);
+    toast("อัปเดต → "+next+" ✓");
+  }catch(e){toast("อัปเดตไม่ได้: "+e.message,true);}
+};
+
+window.backNCR=async(docId,currentStatus)=>{
+  const idx=NCR_STEPS.indexOf(currentStatus);
+  if(idx<=0){toast("อยู่สถานะแรกแล้ว");return;}
+  const prev=NCR_STEPS[idx-1];
+  if(!confirm("ย้อนกลับเป็น \""+prev+"\" ?"))return;
+  try{
+    await updateDoc(doc(db,"qc",docId),{status:prev,updatedBy:U.email,updatedAt:serverTimestamp()});
+    toast("ย้อนกลับ → "+prev);
+  }catch(e){toast("ไม่ได้: "+e.message,true);}
+};
+
 window.submitQC=async()=>{
   const date=$("qc-date")?.value,ncrNo=$("qc-no")?.value.trim();
   const product=$("qc-product")?.value.trim();
   if(!date||!ncrNo||!product){toast("กรุณากรอกข้อมูลให้ครบ");return;}
+  const now=new Date().toISOString();
   await addDoc(collection(db,"qc"),{
     dept:myDept(),email:U.email,date,ncrNo,product,
     project:$("qc-project")?.value.trim()||"",
     houseType:$("qc-house")?.value.trim()||"",
     plot:$("qc-plot")?.value.trim()||"",
     defect:$("qc-defect")?.value.trim()||"",
+    rootcause:$("qc-rootcause")?.value.trim()||"",
     qty:parseInt($("qc-qty")?.value)||0,
     severity:$("qc-severity")?.value||"กลาง",
     action:$("qc-action")?.value.trim()||"",
-    status:"เปิด",ts:serverTimestamp()
+    duedate:$("qc-duedate")?.value||"",
+    owner:$("qc-owner")?.value.trim()||"",
+    status:"เปิด",
+    statusLog:{"เปิด":now},
+    ts:serverTimestamp()
   });
-  ["qc-no","qc-product","qc-project","qc-house","qc-plot","qc-defect","qc-qty","qc-action"].forEach(id=>{const e=$(id);if(e)e.value="";});
-  toast("บันทึก QC สำเร็จ ✓");
+  ["qc-no","qc-product","qc-project","qc-house","qc-plot","qc-defect",
+   "qc-rootcause","qc-qty","qc-action","qc-duedate","qc-owner"].forEach(id=>{
+    const e=$(id);if(e)e.value="";
+  });
+  toast("บันทึก NCR สำเร็จ ✓");
 };
 
 window.submitMat=async()=>{
@@ -425,19 +473,56 @@ function renderLaborTable(d){
 }
 
 function renderQCTable(d){
+  const filtered=_ncrFilter==="all"?d:d.filter(r=>r.status===_ncrFilter);
   const open=d.filter(r=>r.status==="เปิด").length;
-  set("qc-badge",open+" รายการเปิด");
-  $("qc-tbody").innerHTML=d.length?d.slice(0,60).map(r=>`<tr>
-    <td style="font-size:11px;font-family:var(--mono)">${r.ncrNo||""}</td>
-    <td>${r.date||""}</td><td>${dtag(r.dept||"")}</td>
-    <td style="font-size:11px">${r.project||"—"}</td>
-    <td style="font-size:11px">${r.houseType||"—"}</td>
-    <td style="font-size:11px">${r.plot||"—"}</td>
-    <td>${r.product||""}</td><td>${r.defect||""}</td>
-    <td style="font-family:var(--mono)">${r.qty||0}</td>
-    <td><span class="sv ${r.severity==="สูง"?"sv-h":r.severity==="กลาง"?"sv-m":"sv-l"}">${r.severity||""}</span></td>
-    <td><span class="sp ${r.status==="เปิด"?"sp-r":"sp-g"}">${r.status||""}</span></td>
-    <td>${actBtns("qc",r)}</td></tr>`).join(""):noData(12);
+  const inprog=d.filter(r=>r.status==="กำลังแก้ไข").length;
+  const waiting=d.filter(r=>r.status==="รอตรวจสอบ").length;
+  const closed=d.filter(r=>r.status==="ปิด").length;
+  set("qc-badge",open+" เปิด · "+inprog+" แก้ไข · "+waiting+" รอตรวจ");
+  set("ncr-cnt-open",open); set("ncr-cnt-inprog",inprog);
+  set("ncr-cnt-wait",waiting); set("ncr-cnt-done",closed);
+  $("qc-tbody").innerHTML=filtered.length?filtered.map(r=>{
+    const status=r.status||"เปิด";
+    const color=NCR_COLORS[status]||"#888";
+    const idx=NCR_STEPS.indexOf(status);
+    const pct=Math.round((Math.max(0,idx)/(NCR_STEPS.length-1))*100);
+    const canAct=canEdit("qc",r);
+    const enc=encodeURIComponent(JSON.stringify(r));
+    return `<tr style="${status==="ปิด"?"opacity:.65":""}">
+      <td style="font-size:11px;font-family:var(--mono);white-space:nowrap">${r.ncrNo||""}</td>
+      <td style="font-size:11px;white-space:nowrap">${r.date||""}</td>
+      <td>${dtag(r.dept||"")}</td>
+      <td style="font-size:11px">${r.project||"—"}</td>
+      <td style="font-size:11px">${r.houseType||"—"}</td>
+      <td style="font-size:11px">${r.plot||"—"}</td>
+      <td style="font-size:11px">${r.product||""}</td>
+      <td style="font-size:11px;color:#f87171">${r.defect||""}</td>
+      <td style="font-size:11px;color:var(--muted)">${r.rootcause||"—"}</td>
+      <td style="font-size:11px">${r.action||"—"}</td>
+      <td style="font-size:11px">${r.owner||"—"}</td>
+      <td style="font-size:11px;font-family:var(--mono);white-space:nowrap">${r.duedate||"—"}</td>
+      <td style="font-family:var(--mono)">${r.qty||0}</td>
+      <td><span class="sv ${r.severity==="สูง"?"sv-h":r.severity==="กลาง"?"sv-m":"sv-l"}">${r.severity||""}</span></td>
+      <td>
+        <div style="min-width:120px">
+          <div style="display:flex;align-items:center;gap:5px;margin-bottom:3px">
+            <span style="width:8px;height:8px;border-radius:50%;background:${color};display:inline-block;flex-shrink:0"></span>
+            <span style="font-size:11px;font-weight:600;color:${color}">${status}</span>
+          </div>
+          <div style="background:var(--s2);border-radius:3px;height:4px">
+            <div style="width:${pct}%;height:100%;border-radius:3px;background:${color}"></div>
+          </div>
+          <span style="font-size:9px;color:var(--muted)">${idx+1}/${NCR_STEPS.length} · ${pct}%</span>
+        </div>
+      </td>
+      <td style="white-space:nowrap">
+        ${canAct&&idx<NCR_STEPS.length-1?`<button class="ncr-step-btn" style="background:${color}20;color:${color};margin-bottom:3px" onclick="advanceNCR('${r.id}','${status}')">▶ ${NCR_STEPS[idx+1]}</button><br>`:""}
+        ${canAct&&idx>0?`<button class="ncr-step-btn" style="background:rgba(107,114,128,.15);color:#9ca3af;margin-bottom:3px" onclick="backNCR('${r.id}','${status}')">◀ ย้อนกลับ</button><br>`:""}
+        ${canAct?`<button class="ba be" onclick="openEdit('qc','${r.id}','${enc}')">✏ แก้ไข</button>`:""}
+        ${canAct?`<button class="ba bd" onclick="delDoc('qc','${r.id}')">🗑 ลบ</button>`:""}
+      </td>
+    </tr>`;
+  }).join(""):noData(15);
   // mat table
   $("mat-tbody").innerHTML=_mat.length?_mat.slice(0,60).map(r=>`<tr>
     <td>${r.date||""}</td><td style="font-size:11px">${r.name||""}</td>
@@ -675,6 +760,10 @@ tr:hover td{background:rgba(255,255,255,.02)}
 .mb-cancel{background:var(--s2);color:var(--muted);font-family:var(--font);font-size:13px;border:1px solid var(--b2);border-radius:8px;padding:9px 18px;cursor:pointer}
 .toast{position:fixed;bottom:24px;right:24px;background:#1e2330;border:1px solid var(--ac);color:var(--ac);font-size:13px;padding:10px 18px;border-radius:10px;opacity:0;transform:translateY(8px);transition:all .3s;z-index:100;pointer-events:none}
 .toast.show{opacity:1;transform:translateY(0)}
+.ncr-filter-btn{background:var(--s2);border:1px solid var(--b2);color:var(--muted);font-family:var(--font);font-size:11px;padding:5px 12px;border-radius:6px;cursor:pointer;transition:all .15s}
+.ncr-filter-btn:hover{color:var(--fg);border-color:var(--ac)}
+.ncr-filter-btn.active{background:var(--ac);color:#0f1117;border-color:var(--ac);font-weight:600}
+.ncr-step-btn{font-size:10px;padding:4px 9px;border-radius:5px;border:none;cursor:pointer;font-family:var(--font);font-weight:500;white-space:nowrap;display:inline-block}
 </style>
 </head>
 <body>
@@ -710,11 +799,11 @@ tr:hover td{background:rgba(255,255,255,.02)}
 
   <!-- ══ DASHBOARD ══════════════════════════════════ -->
   <div id="pg-dash" class="page">
-    <div class="pt">Factory Dashboard</div>
+    <div class="pt">Dashboard — ภาพรวมโรงงาน</div>
 
     <!-- labor vs target -->
     <div class="card">
-      <div class="ct">ค่าแรงพนักงาน vs ยอดเป้าหมาย (รายเดือน)</div>
+      <div class="ct">ค่าแรงพนักงาน vs ยอดเป้าหมาย (เดือนนี้)</div>
       <div class="g5" style="margin-bottom:12px">
         <div class="kc"><div class="kl">ค่าแรงปกติ 8ชม.</div><div class="kv" style="color:#60a5fa" id="d-normal">—</div><div class="ks">บาท</div></div>
         <div class="kc"><div class="kl">ค่าแรง OT</div><div class="kv" style="color:var(--ac2)" id="d-ot">—</div><div class="ks">บาท</div></div>
@@ -729,11 +818,11 @@ tr:hover td{background:rgba(255,255,255,.02)}
 
     <!-- forecast vs real -->
     <div class="card">
-      <div class="ct">ยอดเป้าหมาย vs สรุปยอดวางบิล</div>
+      <div class="ct">ยอดเป้าหมาย vs ยอดจริงที่เก็บได้</div>
       <div class="g3">
         <div class="kc"><div class="kl">ยอดเป้าหมาย</div><div class="kv" style="color:#a78bfa" id="d-target2">—</div></div>
-        <div class="kc"><div class="kl">สรุปยอดวางบิล</div><div class="kv" style="color:#6ee7b7" id="d-real">—</div></div>
-        <div class="kc"><div class="kl">% ยอดวางบิล/เป้าหมาย</div><div class="kv" id="d-rpct">—</div></div>
+        <div class="kc"><div class="kl">ยอดจริงที่เก็บได้</div><div class="kv" style="color:#6ee7b7" id="d-real">—</div></div>
+        <div class="kc"><div class="kl">% ยอดจริง/เป้าหมาย</div><div class="kv" id="d-rpct">—</div></div>
       </div>
     </div>
 
@@ -748,27 +837,27 @@ tr:hover td{background:rgba(255,255,255,.02)}
         </div>
       </div>
       <div class="card">
-        <div class="ct">Production </div>
+        <div class="ct">Production วันนี้</div>
         <div style="display:flex;flex-direction:column;gap:7px">
-          <div style="display:flex;justify-content:space-between"><span style="font-size:12px;color:var(--muted)">Plan (Item)</span><span style="font-family:var(--mono);font-weight:600" id="d-prod-plan">—</span></div>
-          <div style="display:flex;justify-content:space-between"><span style="font-size:12px;color:#6ee7b7">Actual (Item)</span><span style="font-family:var(--mono);font-weight:600;color:#6ee7b7" id="d-prod-actual">—</span></div>
+          <div style="display:flex;justify-content:space-between"><span style="font-size:12px;color:var(--muted)">แผน (Item)</span><span style="font-family:var(--mono);font-weight:600" id="d-prod-plan">—</span></div>
+          <div style="display:flex;justify-content:space-between"><span style="font-size:12px;color:#6ee7b7">จริง (Item)</span><span style="font-family:var(--mono);font-weight:600;color:#6ee7b7" id="d-prod-actual">—</span></div>
           <div style="background:var(--s2);border-radius:4px;height:7px;margin-top:4px"><div class="pbar" id="d-prod-bar" style="width:0%"></div></div>
           <div style="text-align:right;font-size:12px;font-family:var(--mono)" id="d-prod-pct">—</div>
         </div>
       </div>
       <div class="card">
-        <div class="ct">QC </div>
+        <div class="ct">QC วันนี้</div>
         <div style="display:flex;flex-direction:column;gap:7px">
-          <div style="display:flex;justify-content:space-between"><span style="font-size:12px;color:#f87171">NCR Open</span><span style="font-family:var(--mono);font-size:22px;font-weight:600;color:#f87171" id="d-qc-open">—</span></div>
-          <div style="display:flex;justify-content:space-between"><span style="font-size:12px;color:var(--muted)">จำนวนทั้งหมด</span><span style="font-family:var(--mono);font-weight:600" id="d-qc-total">—</span></div>
+          <div style="display:flex;justify-content:space-between"><span style="font-size:12px;color:#f87171">NCR เปิด</span><span style="font-family:var(--mono);font-size:22px;font-weight:600;color:#f87171" id="d-qc-open">—</span></div>
+          <div style="display:flex;justify-content:space-between"><span style="font-size:12px;color:var(--muted)">NCR ทั้งหมด</span><span style="font-family:var(--mono);font-weight:600" id="d-qc-total">—</span></div>
         </div>
       </div>
     </div>
     <div class="g3">
       <div class="card">
-        <div class="ct">CNC </div>
-        <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="font-size:12px;color:var(--muted)">Part Plan</span><span style="font-family:var(--mono);font-weight:600" id="d-cnc-plan">—</span></div>
-        <div style="display:flex;justify-content:space-between"><span style="font-size:12px;color:#6ee7b7">Part Actual</span><span style="font-family:var(--mono);font-weight:600;color:#6ee7b7" id="d-cnc-actual">—</span></div>
+        <div class="ct">CNC วันนี้</div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="font-size:12px;color:var(--muted)">แผน Part</span><span style="font-family:var(--mono);font-weight:600" id="d-cnc-plan">—</span></div>
+        <div style="display:flex;justify-content:space-between"><span style="font-size:12px;color:#6ee7b7">จริง Part</span><span style="font-family:var(--mono);font-weight:600;color:#6ee7b7" id="d-cnc-actual">—</span></div>
       </div>
       <div class="card">
         <div class="ct">Maintenance</div>
@@ -784,7 +873,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
 
   <!-- ══ SALE ORDER ══════════════════════════════════ -->
   <div id="pg-so" class="page">
-    <div class="pt">Sale Order Record</div>
+    <div class="pt">Sale Order Tracking</div>
     <div class="g3" style="margin-bottom:14px">
       <div class="kc"><div class="kl">Item ทั้งหมด</div><div class="kv" id="so-total">—</div></div>
       <div class="kc"><div class="kl">เสร็จสิ้น</div><div class="kv" style="color:#6ee7b7" id="so-done">—</div></div>
@@ -795,32 +884,32 @@ tr:hover td{background:rgba(255,255,255,.02)}
         <span style="color:var(--muted)">ขั้นตอน:</span>
         <span style="color:#6b7280">● รับ SO</span><span style="color:#60a5fa">● ตรวจสอบ</span>
         <span style="color:#fbbf24">● ทำแบบ/ผลิต</span><span style="color:#a78bfa">● ติดตั้ง</span>
-        <span style="color:#a78bfa">● Trial Report</span><span style="color:#6ee7b7">● เสร็จสิ้น ✓</span>
+        <span style="color:#6ee7b7">● เสร็จสิ้น ✓</span>
       </div>
     </div>
     <div class="sdiv">สร้างโครงการใหม่</div>
     <div class="card">
       <div class="fgrid">
-        <div class="fg"><label>เลขที่เอกสาร SO *</label><input id="proj-so" type="text" placeholder="SO2569/00000"></div>
-        <div class="fg"><label>ชื่อโครงการ *</label><input id="proj-name" type="text" placeholder="เช่น บุราสิริ พระราม 9"></div>
+        <div class="fg"><label>SO Number *</label><input id="proj-so" type="text" placeholder="SO-2026-001"></div>
+        <div class="fg"><label>ชื่อโครงการ *</label><input id="proj-name" type="text" placeholder="เช่น ศุภาลัย พาร์ค"></div>
         <div class="fg full"><label>หมายเหตุ</label><input id="proj-note" type="text" placeholder="รายละเอียด"></div>
       </div>
       <button class="btn-s" onclick="submitProject()">+ สร้างโครงการ</button>
     </div>
     <div class="card">
-      <div class="ct">รายการโครงการทั้งหมด</div>
+      <div class="ct">รายการโครงการ</div>
       <div class="tw"><table><thead><tr><th>SO No.</th><th>ชื่อโครงการ</th><th>Item</th><th>เสร็จ</th><th>หมายเหตุ</th><th>จัดการ</th></tr></thead><tbody id="proj-tbody"></tbody></table></div>
     </div>
-    <div class="sdiv">เพิ่มรายละเอียดของโครงการ</div>
+    <div class="sdiv">เพิ่ม Item เข้าโครงการ</div>
     <div class="card">
-      <div class="info-box">รายละเอียดของงาน</div>
+      <div class="info-box">1 โครงการ มีหลาย Item — เช่น ราวบันได S340, ระเบียง S308 แต่ละ Item ติดตาม 9 ขั้นตอนแยกกัน</div>
       <div class="fgrid">
         <div class="fg"><label>โครงการ *</label><select id="item-project"><option value="">-- เลือกโครงการ --</option></select></div>
-        <div class="fg"><label>Item *</label><input id="item-code" type="text" placeholder="เช่น ราวบันได"></div>
-        <div class="fg"><label>Type </label><input id="item-house" type="text" placeholder="เช่น S308B"></div>
-        <div class="fg"><label>แปลง *</label><input id="item-plot" type="text" placeholder="เช่น 62"></div>
-        <div class="fg"><label>แผนติดตั้ง</label><input id="item-plan-date" type="date"></div>
-        <div class="fg"><label>ผู้รับผิดชอบ</label><input id="item-engineer" type="text" placeholder="ชื่อเจ้าหน้าที่เขียนแบบ"></div>
+        <div class="fg"><label>Item / รหัสสินค้า *</label><input id="item-code" type="text" placeholder="เช่น ราวบันได S340"></div>
+        <div class="fg"><label>Type แบบบ้าน</label><input id="item-house" type="text" placeholder="เช่น Type A 2ชั้น"></div>
+        <div class="fg"><label>แปลงที่ *</label><input id="item-plot" type="text" placeholder="เช่น A101"></div>
+        <div class="fg"><label>วันแผนติดตั้ง</label><input id="item-plan-date" type="date"></div>
+        <div class="fg"><label>วิศวกรผู้รับผิดชอบ</label><input id="item-engineer" type="text" placeholder="ชื่อวิศวกร"></div>
       </div>
       <button class="btn-s" onclick="submitSOItem()">+ เพิ่ม Item</button>
     </div>
@@ -832,7 +921,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
           <option value="">ทั้งหมด</option>
         </select>
       </div>
-      <div class="tw"><table><thead><tr><th>SO</th><th>โครงการ</th><th>Item</th><th>แบบบ้าน</th><th>แปลง</th><th>แผนติดตั้ง</th><th>ผู้รับผิดชอบ</th><th>สถานะ</th><th>จัดการ</th></tr></thead><tbody id="so-tbody"></tbody></table></div>
+      <div class="tw"><table><thead><tr><th>SO</th><th>โครงการ</th><th>Item</th><th>แบบบ้าน</th><th>แปลง</th><th>แผน</th><th>วิศวกร</th><th>สถานะ</th><th>จัดการ</th></tr></thead><tbody id="so-tbody"></tbody></table></div>
     </div>
   </div>
 
@@ -846,8 +935,8 @@ tr:hover td{background:rgba(255,255,255,.02)}
         <div class="fg"><label>ชั่วโมง OT</label><input id="ot-hrs" type="number" placeholder="2.5" min="0" step="0.5"></div>
         <div class="fg"><label>ค่าแรงปกติ 8ชม. (บ./วัน)</label><input id="ot-normal" type="number" placeholder="8000" min="0"></div>
         <div class="fg"><label>ค่าแรง OT (บ./วัน)</label><input id="ot-ot" type="number" placeholder="1500" min="0"></div>
-        <div class="fg full"><label>สาเหตุของการเปิด OT</label><input id="ot-cause" type="text" placeholder="ระบุสาเหตุ"></div>
-        <div class="fg full"><label>หมายเหตุเพิ่มเติม</label><input id="ot-note" type="text" placeholder="รายละเอียดเพิ่มเติม"></div>
+        <div class="fg full"><label>สาเหตุ OT</label><input id="ot-cause" type="text" placeholder="พิมพ์สาเหตุ OT หรือหมายเหตุ"></div>
+        <div class="fg full"><label>หมายเหตุเพิ่มเติม</label><input id="ot-note" type="text" placeholder="รายละเอียด"></div>
       </div>
       <button class="btn-s" onclick="submitLabor()">+ บันทึกค่าแรง</button>
     </div>
@@ -858,7 +947,15 @@ tr:hover td{background:rgba(255,255,255,.02)}
 
   <!-- ══ QC ══════════════════════════════════════════ -->
   <div id="pg-qc" class="page">
-    <div class="pt">QC <span class="badge badge-r" id="qc-badge">0 รายการเปิด</span></div>
+    <div class="pt">QC <span class="badge badge-r" id="qc-badge">0 เปิด</span></div>
+
+    <!-- NCR summary cards -->
+    <div class="g4" style="margin-bottom:14px">
+      <div class="kc"><div class="kl" style="color:#f87171">🔴 เปิด</div><div class="kv" style="color:#f87171" id="ncr-cnt-open">—</div></div>
+      <div class="kc"><div class="kl" style="color:#fbbf24">🟡 กำลังแก้ไข</div><div class="kv" style="color:#fbbf24" id="ncr-cnt-inprog">—</div></div>
+      <div class="kc"><div class="kl" style="color:#60a5fa">🔵 รอตรวจสอบ</div><div class="kv" style="color:#60a5fa" id="ncr-cnt-wait">—</div></div>
+      <div class="kc"><div class="kl" style="color:#6ee7b7">🟢 ปิดแล้ว</div><div class="kv" style="color:#6ee7b7" id="ncr-cnt-done">—</div></div>
+    </div>
 
     <div class="sdiv">บันทึก NCR ใหม่</div>
     <div class="card">
@@ -870,7 +967,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
         <div class="fg"><label>แบบบ้าน</label><input id="qc-house" type="text" placeholder="Type A / 2ชั้น"></div>
         <div class="fg"><label>แปลงที่</label><input id="qc-plot" type="text" placeholder="A101"></div>
         <div class="fg full"><label>ลักษณะของเสีย / อาการ</label><input id="qc-defect" type="text" placeholder="เช่น รอยเชื่อมไม่สม่ำเสมอ"></div>
-        <div class="fg full"><label>สาเหตุที่แท้จริง (Root Cause)</label><input id="qc-rootcause" type="text" placeholder="เช่น ตั้งค่าเครื่องเชื่อมผิด / พนักงานขาดการอบรม"></div>
+        <div class="fg full"><label>สาเหตุที่แท้จริง (Root Cause)</label><input id="qc-rootcause" type="text" placeholder="เช่น ตั้งค่าเครื่องผิด / พนักงานขาดการอบรม"></div>
         <div class="fg"><label>จำนวน (ชิ้น)</label><input id="qc-qty" type="number" placeholder="1" min="0"></div>
         <div class="fg"><label>ระดับความรุนแรง</label>
           <select id="qc-severity"><option>สูง</option><option selected>กลาง</option><option>ต่ำ</option></select>
@@ -883,9 +980,8 @@ tr:hover td{background:rgba(255,255,255,.02)}
     </div>
 
     <div class="sdiv">รายการ NCR ทั้งหมด</div>
-    <div class="card" id="ncr-table-section">
-      <!-- Status filter -->
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
+    <div class="card">
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">
         <button class="ncr-filter-btn active" onclick="filterNCR('all',this)">ทั้งหมด</button>
         <button class="ncr-filter-btn" onclick="filterNCR('เปิด',this)">🔴 เปิด</button>
         <button class="ncr-filter-btn" onclick="filterNCR('กำลังแก้ไข',this)">🟡 กำลังแก้ไข</button>
@@ -894,15 +990,12 @@ tr:hover td{background:rgba(255,255,255,.02)}
       </div>
       <div class="tw">
         <table>
-          <thead>
-            <tr>
-              <th>NCR No.</th><th>วันที่</th><th>แผนก</th><th>โครงการ</th>
-              <th>แบบบ้าน</th><th>แปลง</th><th>สินค้า/งาน</th><th>ของเสีย</th>
-              <th>Root Cause</th><th>Action Plan</th><th>ผู้รับผิดชอบ</th>
-              <th>กำหนดเสร็จ</th><th>จำนวน</th><th>ระดับ</th>
-              <th>สถานะ</th><th>จัดการ</th>
-            </tr>
-          </thead>
+          <thead><tr>
+            <th>NCR No.</th><th>วันที่</th><th>แผนก</th><th>โครงการ</th><th>แบบบ้าน</th>
+            <th>แปลง</th><th>สินค้า/งาน</th><th>ของเสีย</th><th>Root Cause</th>
+            <th>Action Plan</th><th>ผู้รับผิดชอบ</th><th>กำหนดเสร็จ</th>
+            <th>จำนวน</th><th>ระดับ</th><th>สถานะ</th><th>จัดการ</th>
+          </tr></thead>
           <tbody id="qc-tbody"></tbody>
         </table>
       </div>
@@ -924,8 +1017,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
       </div>
       <button class="btn-s" onclick="submitMat()">+ บันทึกรับวัตถุดิบ</button>
     </div>
-    <div class="card">
-      <div class="ct">ประวัติรับวัตถุดิบ</div>
+    <div class="card"><div class="ct">ประวัติรับวัตถุดิบ</div>
       <div class="tw">
         <table>
           <thead><tr><th>วันที่</th><th>วัตถุดิบ</th><th>รหัส</th><th>ผู้ขาย</th><th>จำนวน</th><th>% QC</th><th>หมายเหตุ</th><th>จัดการ</th></tr></thead>
@@ -939,27 +1031,27 @@ tr:hover td{background:rgba(255,255,255,.02)}
   <div id="pg-prod" class="page">
     <div class="pt">Production</div>
     <div class="g2" style="margin-bottom:14px">
-      <div class="kc"><div class="kl">Plan (Item)</div><div class="kv" style="color:var(--ac2)" id="prod-today-plan">—</div></div>
-      <div class="kc"><div class="kl">Actual (Item)</div><div class="kv" style="color:#6ee7b7" id="prod-today-actual">—</div></div>
+      <div class="kc"><div class="kl">แผนวันนี้ (Item)</div><div class="kv" style="color:var(--ac2)" id="prod-today-plan">—</div></div>
+      <div class="kc"><div class="kl">ผลิตได้จริงวันนี้</div><div class="kv" style="color:#6ee7b7" id="prod-today-actual">—</div></div>
     </div>
     <div class="card">
-      <div class="info-box">บันทึกแผนผลิต (รายวัน)</div>
+      <div class="info-box">บันทึกทีละ Item — วันนี้ผลิตอะไร โครงการอะไร แปลงอะไร ได้กี่ชิ้น</div>
       <div class="fgrid">
         <div class="fg"><label>วันที่ *</label><input id="pi-date" type="date"></div>
-        <div class="fg"><label>Man Power</label><input id="pi-manpower" type="number" placeholder="จำนวนคน" min="0"></div>
+        <div class="fg"><label>กำลังคน (คน)</label><input id="pi-manpower" type="number" placeholder="10" min="0"></div>
         <div class="fg"><label>Item / รายการผลิต *</label><input id="pi-item" type="text" placeholder="เช่น ราวบันได, ระเบียง, ประตู"></div>
         <div class="fg"><label>โครงการ</label><input id="pi-project" type="text" placeholder="ชื่อโครงการ"></div>
         <div class="fg"><label>แบบบ้าน</label><input id="pi-house" type="text" placeholder="Type A / S340"></div>
-        <div class="fg"><label>แปลงที่</label><input id="pi-plot" type="text" placeholder="เช่น 62"></div>
-        <div class="fg"><label>Plan (ชิ้น)</label><input id="pi-planned" type="number" placeholder="5" min="0"></div>
-        <div class="fg"><label>Actual (ชิ้น)</label><input id="pi-actual" type="number" placeholder="4" min="0"></div>
+        <div class="fg"><label>แปลงที่</label><input id="pi-plot" type="text" placeholder="เช่น A101"></div>
+        <div class="fg"><label>แผน (ชิ้น)</label><input id="pi-planned" type="number" placeholder="5" min="0"></div>
+        <div class="fg"><label>ผลิตจริง (ชิ้น)</label><input id="pi-actual" type="number" placeholder="4" min="0"></div>
         <div class="fg full"><label>ปัญหาที่พบ (Morning Talk)</label><textarea id="pi-issues" placeholder="รายงานปัญหาที่พบ"></textarea></div>
         <div class="fg full"><label>แผนแก้ไข / Action</label><textarea id="pi-action" placeholder="แนวทางและแผนแก้ไข"></textarea></div>
       </div>
       <button class="btn-s" onclick="submitProdItem()">+ บันทึก Production</button>
     </div>
     <div class="card"><div class="ct">รายการผลิตทั้งหมด</div>
-      <div class="tw"><table><thead><tr><th>วันที่</th><th>แผนก</th><th>Item</th><th>โครงการ</th><th>แบบบ้าน</th><th>แปลง</th><th>Plan</th><th>Actual</th><th>คน</th><th>ปัญหา</th><th>จัดการ</th></tr></thead><tbody id="prod-tbody"></tbody></table></div>
+      <div class="tw"><table><thead><tr><th>วันที่</th><th>แผนก</th><th>Item</th><th>โครงการ</th><th>แบบบ้าน</th><th>แปลง</th><th>แผน</th><th>จริง</th><th>คน</th><th>ปัญหา</th><th>จัดการ</th></tr></thead><tbody id="prod-tbody"></tbody></table></div>
     </div>
   </div>
 
@@ -973,9 +1065,9 @@ tr:hover td{background:rgba(255,255,255,.02)}
         <div class="fg"><label>เครื่องจักร</label><input id="cnc-machine" type="text" placeholder="ชื่อเครื่อง CNC"></div>
         <div class="fg"><label>โครงการ</label><input id="cnc-project" type="text" placeholder="ชื่อโครงการ"></div>
         <div class="fg"><label>แบบบ้าน / Type</label><input id="cnc-house" type="text" placeholder="Type A"></div>
-        <div class="fg"><label>วัสดุดิบที่ใช้</label><input id="cnc-material" type="text" placeholder="เช่น เหล็กแผ่น 3 mm."></div>
-        <div class="fg"><label>Plan (ชิ้น)</label><input id="cnc-planned" type="number" placeholder="50" min="0"></div>
-        <div class="fg"><label>Actual (ชิ้น)</label><input id="cnc-actual" type="number" placeholder="48" min="0"></div>
+        <div class="fg"><label>วัสดุดิบที่ใช้</label><input id="cnc-material" type="text" placeholder="เช่น อลูมิเนียม 6061"></div>
+        <div class="fg"><label>เป้าหมาย (ชิ้น)</label><input id="cnc-planned" type="number" placeholder="50" min="0"></div>
+        <div class="fg"><label>ผลิตจริง (ชิ้น)</label><input id="cnc-actual" type="number" placeholder="48" min="0"></div>
         <div class="fg full"><label>หมายเหตุ</label><input id="cnc-note" type="text" placeholder="หมายเหตุ / ปัญหาที่พบ"></div>
       </div>
       <button class="btn-s" onclick="submitCNC()">+ บันทึก CNC</button>
