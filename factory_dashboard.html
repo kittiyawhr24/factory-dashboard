@@ -818,11 +818,11 @@ tr:hover td{background:rgba(255,255,255,.02)}
 
     <!-- forecast vs real -->
     <div class="card">
-      <div class="ct">ยอดเป้าหมาย vs ยอดจริงที่เก็บได้</div>
+      <div class="ct">ยอดเป้าหมาย vs ยอดวางบิล</div>
       <div class="g3">
         <div class="kc"><div class="kl">ยอดเป้าหมาย</div><div class="kv" style="color:#a78bfa" id="d-target2">—</div></div>
-        <div class="kc"><div class="kl">ยอดจริงที่เก็บได้</div><div class="kv" style="color:#6ee7b7" id="d-real">—</div></div>
-        <div class="kc"><div class="kl">% ยอดจริง/เป้าหมาย</div><div class="kv" id="d-rpct">—</div></div>
+        <div class="kc"><div class="kl">ยอดวางบิล</div><div class="kv" style="color:#6ee7b7" id="d-real">—</div></div>
+        <div class="kc"><div class="kl">% ยอดวางบิล/เป้าหมาย</div><div class="kv" id="d-rpct">—</div></div>
       </div>
     </div>
 
@@ -831,7 +831,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
       <div class="card">
         <div class="ct">Sale Order</div>
         <div style="display:flex;flex-direction:column;gap:7px">
-          <div style="display:flex;justify-content:space-between"><span style="font-size:12px;color:var(--muted)">Item ทั้งหมด</span><span style="font-family:var(--mono);font-size:18px;font-weight:600" id="d-so-total">—</span></div>
+          <div style="display:flex;justify-content:space-between"><span style="font-size:12px;color:var(--muted)">items ทั้งหมด</span><span style="font-family:var(--mono);font-size:18px;font-weight:600" id="d-so-total">—</span></div>
           <div style="display:flex;justify-content:space-between"><span style="font-size:12px;color:#6ee7b7">เสร็จสิ้น</span><span style="font-family:var(--mono);font-size:18px;font-weight:600;color:#6ee7b7" id="d-so-done">—</span></div>
           <div style="display:flex;justify-content:space-between"><span style="font-size:12px;color:var(--ac2)">กำลังดำเนินการ</span><span style="font-family:var(--mono);font-size:18px;font-weight:600;color:var(--ac2)" id="d-so-inprog">—</span></div>
         </div>
@@ -839,8 +839,8 @@ tr:hover td{background:rgba(255,255,255,.02)}
       <div class="card">
         <div class="ct">Production วันนี้</div>
         <div style="display:flex;flex-direction:column;gap:7px">
-          <div style="display:flex;justify-content:space-between"><span style="font-size:12px;color:var(--muted)">แผน (Item)</span><span style="font-family:var(--mono);font-weight:600" id="d-prod-plan">—</span></div>
-          <div style="display:flex;justify-content:space-between"><span style="font-size:12px;color:#6ee7b7">จริง (Item)</span><span style="font-family:var(--mono);font-weight:600;color:#6ee7b7" id="d-prod-actual">—</span></div>
+          <div style="display:flex;justify-content:space-between"><span style="font-size:12px;color:var(--muted)">Plan (items)</span><span style="font-family:var(--mono);font-weight:600" id="d-prod-plan">—</span></div>
+          <div style="display:flex;justify-content:space-between"><span style="font-size:12px;color:#6ee7b7">Actual (items)</span><span style="font-family:var(--mono);font-weight:600;color:#6ee7b7" id="d-prod-actual">—</span></div>
           <div style="background:var(--s2);border-radius:4px;height:7px;margin-top:4px"><div class="pbar" id="d-prod-bar" style="width:0%"></div></div>
           <div style="text-align:right;font-size:12px;font-family:var(--mono)" id="d-prod-pct">—</div>
         </div>
@@ -856,8 +856,8 @@ tr:hover td{background:rgba(255,255,255,.02)}
     <div class="g3">
       <div class="card">
         <div class="ct">CNC วันนี้</div>
-        <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="font-size:12px;color:var(--muted)">แผน Part</span><span style="font-family:var(--mono);font-weight:600" id="d-cnc-plan">—</span></div>
-        <div style="display:flex;justify-content:space-between"><span style="font-size:12px;color:#6ee7b7">จริง Part</span><span style="font-family:var(--mono);font-weight:600;color:#6ee7b7" id="d-cnc-actual">—</span></div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="font-size:12px;color:var(--muted)">Part Plan (ชิ้น)</span><span style="font-family:var(--mono);font-weight:600" id="d-cnc-plan">—</span></div>
+        <div style="display:flex;justify-content:space-between"><span style="font-size:12px;color:#6ee7b7">Part Actual (ชิ้น)</span><span style="font-family:var(--mono);font-weight:600;color:#6ee7b7" id="d-cnc-actual">—</span></div>
       </div>
       <div class="card">
         <div class="ct">Maintenance</div>
@@ -873,9 +873,9 @@ tr:hover td{background:rgba(255,255,255,.02)}
 
   <!-- ══ SALE ORDER ══════════════════════════════════ -->
   <div id="pg-so" class="page">
-    <div class="pt">Sale Order Tracking</div>
+    <div class="pt">Sale Order Record</div>
     <div class="g3" style="margin-bottom:14px">
-      <div class="kc"><div class="kl">Item ทั้งหมด</div><div class="kv" id="so-total">—</div></div>
+      <div class="kc"><div class="kl">items ทั้งหมด</div><div class="kv" id="so-total">—</div></div>
       <div class="kc"><div class="kl">เสร็จสิ้น</div><div class="kv" style="color:#6ee7b7" id="so-done">—</div></div>
       <div class="kc"><div class="kl">กำลังดำเนินการ</div><div class="kv" style="color:var(--ac2)" id="so-inprog">—</div></div>
     </div>
@@ -884,36 +884,36 @@ tr:hover td{background:rgba(255,255,255,.02)}
         <span style="color:var(--muted)">ขั้นตอน:</span>
         <span style="color:#6b7280">● รับ SO</span><span style="color:#60a5fa">● ตรวจสอบ</span>
         <span style="color:#fbbf24">● ทำแบบ/ผลิต</span><span style="color:#a78bfa">● ติดตั้ง</span>
-        <span style="color:#6ee7b7">● เสร็จสิ้น ✓</span>
+        <span style="color:#a78bfa">● Trial report</span><span style="color:#6ee7b7">● เสร็จสิ้น ✓</span>
       </div>
     </div>
     <div class="sdiv">สร้างโครงการใหม่</div>
     <div class="card">
       <div class="fgrid">
-        <div class="fg"><label>SO Number *</label><input id="proj-so" type="text" placeholder="SO-2026-001"></div>
-        <div class="fg"><label>ชื่อโครงการ *</label><input id="proj-name" type="text" placeholder="เช่น ศุภาลัย พาร์ค"></div>
-        <div class="fg full"><label>หมายเหตุ</label><input id="proj-note" type="text" placeholder="รายละเอียด"></div>
+        <div class="fg"><label>เลขที่เอกสาร SO *</label><input id="proj-so" type="text" placeholder="SO2569/00000"></div>
+        <div class="fg"><label>โครงการ *</label><input id="proj-name" type="text" placeholder="="ชื่อโครงการ></div>
+        <div class="fg full"><label>หมายเหตุ</label><input id="proj-note" type="text" placeholder="รายละเอียดเพิ่มเติม"></div>
       </div>
       <button class="btn-s" onclick="submitProject()">+ สร้างโครงการ</button>
     </div>
     <div class="card">
       <div class="ct">รายการโครงการ</div>
-      <div class="tw"><table><thead><tr><th>SO No.</th><th>ชื่อโครงการ</th><th>Item</th><th>เสร็จ</th><th>หมายเหตุ</th><th>จัดการ</th></tr></thead><tbody id="proj-tbody"></tbody></table></div>
+      <div class="tw"><table><thead><tr><th>SO No.</th><th>ชื่อโครงการ</th><th>Items</th><th>เสร็จ</th><th>หมายเหตุ</th><th>จัดการ</th></tr></thead><tbody id="proj-tbody"></tbody></table></div>
     </div>
-    <div class="sdiv">เพิ่ม Item เข้าโครงการ</div>
+    <div class="sdiv">เพิ่ม Items เข้าโครงการ</div>
     <div class="card">
-      <div class="info-box">1 โครงการ มีหลาย Item — เช่น ราวบันได S340, ระเบียง S308 แต่ละ Item ติดตาม 9 ขั้นตอนแยกกัน</div>
+      <div class="info-box">รายละเอียดของงานโครงการ</div>
       <div class="fgrid">
         <div class="fg"><label>โครงการ *</label><select id="item-project"><option value="">-- เลือกโครงการ --</option></select></div>
-        <div class="fg"><label>Item / รหัสสินค้า *</label><input id="item-code" type="text" placeholder="เช่น ราวบันได S340"></div>
-        <div class="fg"><label>Type แบบบ้าน</label><input id="item-house" type="text" placeholder="เช่น Type A 2ชั้น"></div>
-        <div class="fg"><label>แปลงที่ *</label><input id="item-plot" type="text" placeholder="เช่น A101"></div>
-        <div class="fg"><label>วันแผนติดตั้ง</label><input id="item-plan-date" type="date"></div>
-        <div class="fg"><label>วิศวกรผู้รับผิดชอบ</label><input id="item-engineer" type="text" placeholder="ชื่อวิศวกร"></div>
+        <div class="fg"><label>ประเภทงาน *</label><input id="item-code" type="text" placeholder="เช่น ราวบันได"></div>
+        <div class="fg"><label>แบบบ้าน</label><input id="item-house" type="text" placeholder="เช่น S308B"></div>
+        <div class="fg"><label>แปลง *</label><input id="item-plot" type="text" placeholder="เช่น 62"></div>
+        <div class="fg"><label>แผนติดตั้ง</label><input id="item-plan-date" type="date"></div>
+        <div class="fg"><label>ผู้รับผิดชอบ</label><input id="item-engineer" type="text" placeholder="ชื่อเจ้าหน้าที่เขียนแบบ"></div>
       </div>
-      <button class="btn-s" onclick="submitSOItem()">+ เพิ่ม Item</button>
+      <button class="btn-s" onclick="submitSOItem()">+ เพิ่ม items</button>
     </div>
-    <div class="sdiv">รายการ Item ทั้งหมด</div>
+    <div class="sdiv">รายการ items ทั้งหมด</div>
     <div class="card">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
         <label style="font-size:11px;color:var(--muted)">กรองโครงการ:</label>
@@ -921,7 +921,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
           <option value="">ทั้งหมด</option>
         </select>
       </div>
-      <div class="tw"><table><thead><tr><th>SO</th><th>โครงการ</th><th>Item</th><th>แบบบ้าน</th><th>แปลง</th><th>แผน</th><th>วิศวกร</th><th>สถานะ</th><th>จัดการ</th></tr></thead><tbody id="so-tbody"></tbody></table></div>
+      <div class="tw"><table><thead><tr><th>SO</th><th>โครงการ</th><th>ประเภทงาน</th><th>แบบบ้าน</th><th>แปลง</th><th>แผนติดตั้ง</th><th>ผู้รับผิดชอบ</th><th>สถานะ</th><th>จัดการ</th></tr></thead><tbody id="so-tbody"></tbody></table></div>
     </div>
   </div>
 
@@ -935,8 +935,8 @@ tr:hover td{background:rgba(255,255,255,.02)}
         <div class="fg"><label>ชั่วโมง OT</label><input id="ot-hrs" type="number" placeholder="2.5" min="0" step="0.5"></div>
         <div class="fg"><label>ค่าแรงปกติ 8ชม. (บ./วัน)</label><input id="ot-normal" type="number" placeholder="8000" min="0"></div>
         <div class="fg"><label>ค่าแรง OT (บ./วัน)</label><input id="ot-ot" type="number" placeholder="1500" min="0"></div>
-        <div class="fg full"><label>สาเหตุ OT</label><input id="ot-cause" type="text" placeholder="พิมพ์สาเหตุ OT หรือหมายเหตุ"></div>
-        <div class="fg full"><label>หมายเหตุเพิ่มเติม</label><input id="ot-note" type="text" placeholder="รายละเอียด"></div>
+        <div class="fg full"><label>สาเหตุ OT</label><input id="ot-cause" type="text" placeholder="ระบุสาเหตุของการเปิด OT"></div>
+        <div class="fg full"><label>หมายเหตุเพิ่มเติม</label><input id="ot-note" type="text" placeholder="รายละเอียดเพิ่มเติม"></div>
       </div>
       <button class="btn-s" onclick="submitLabor()">+ บันทึกค่าแรง</button>
     </div>
@@ -962,12 +962,12 @@ tr:hover td{background:rgba(255,255,255,.02)}
       <div class="fgrid">
         <div class="fg"><label>เลข NCR *</label><input id="qc-no" type="text" placeholder="NCR-2026-001"></div>
         <div class="fg"><label>วันที่ *</label><input id="qc-date" type="date"></div>
-        <div class="fg"><label>ชื่อสินค้า/งาน *</label><input id="qc-product" type="text" placeholder="เช่น ราวบันได A01"></div>
-        <div class="fg"><label>ชื่อโครงการ</label><input id="qc-project" type="text" placeholder="ชื่อโครงการ"></div>
-        <div class="fg"><label>แบบบ้าน</label><input id="qc-house" type="text" placeholder="Type A / 2ชั้น"></div>
-        <div class="fg"><label>แปลงที่</label><input id="qc-plot" type="text" placeholder="A101"></div>
+        <div class="fg"><label>ประเภทงาน *</label><input id="qc-product" type="text" placeholder="เช่น ราวบันได 01"></div>
+        <div class="fg"><label>ชื่อโครงการ</label><input id="qc-project" type="text" placeholder="เช่น บุราสิริ พระราม 9"></div>
+        <div class="fg"><label>แบบบ้าน</label><input id="qc-house" type="text" placeholder="เช่น S308B"></div>
+        <div class="fg"><label>แปลง</label><input id="qc-plot" type="text" placeholder="เช่น 62"></div>
         <div class="fg full"><label>ลักษณะของเสีย / อาการ</label><input id="qc-defect" type="text" placeholder="เช่น รอยเชื่อมไม่สม่ำเสมอ"></div>
-        <div class="fg full"><label>สาเหตุที่แท้จริง (Root Cause)</label><input id="qc-rootcause" type="text" placeholder="เช่น ตั้งค่าเครื่องผิด / พนักงานขาดการอบรม"></div>
+        <div class="fg full"><label>สาเหตุที่แท้จริง (Root Cause)</label><input id="qc-rootcause" type="text" placeholder="เช่น ทักษะของพนักงาน / พนักงานขาดการอบรม"></div>
         <div class="fg"><label>จำนวน (ชิ้น)</label><input id="qc-qty" type="number" placeholder="1" min="0"></div>
         <div class="fg"><label>ระดับความรุนแรง</label>
           <select id="qc-severity"><option>สูง</option><option selected>กลาง</option><option>ต่ำ</option></select>
@@ -992,7 +992,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
         <table>
           <thead><tr>
             <th>NCR No.</th><th>วันที่</th><th>แผนก</th><th>โครงการ</th><th>แบบบ้าน</th>
-            <th>แปลง</th><th>สินค้า/งาน</th><th>ของเสีย</th><th>Root Cause</th>
+            <th>แปลง</th><th>ประเภทงาน</th><th>ของเสีย</th><th>Root Cause</th>
             <th>Action Plan</th><th>ผู้รับผิดชอบ</th><th>กำหนดเสร็จ</th>
             <th>จำนวน</th><th>ระดับ</th><th>สถานะ</th><th>จัดการ</th>
           </tr></thead>
@@ -1001,26 +1001,26 @@ tr:hover td{background:rgba(255,255,255,.02)}
       </div>
     </div>
 
-    <div class="sdiv">รับวัตถุดิบ</div>
+    <div class="sdiv">บันทึกการรับวัตถุดิบ</div>
     <div class="card">
       <div class="fgrid">
         <div class="fg"><label>วันที่ *</label><input id="mat-date" type="date"></div>
-        <div class="fg"><label>ชื่อวัตถุดิบ *</label><input id="mat-name" type="text" placeholder="เช่น เหล็กกล่อง 25x25"></div>
-        <div class="fg"><label>รหัส</label><input id="mat-code" type="text" placeholder="รหัสวัตถุดิบ"></div>
+        <div class="fg"><label>ชื่อวัตถุดิบ *</label><input id="mat-name" type="text" placeholder="เช่น เหล็กกล่อง t3.0x25x25"></div>
+        <div class="fg"><label>เลขที่เอกสาร PO</label><input id="mat-code" type="text" placeholder="รหัสวัตถุดิบ"></div>
         <div class="fg"><label>ผู้ขาย/ผู้ส่ง</label><input id="mat-supplier" type="text" placeholder="ชื่อ supplier"></div>
         <div class="fg"><label>จำนวนที่รับ</label><input id="mat-qty" type="number" placeholder="100" min="0"></div>
         <div class="fg"><label>หน่วย</label>
-          <select id="mat-unit"><option>ชิ้น</option><option>kg</option><option>m</option><option>แผ่น</option><option>ม้วน</option></select>
+          <select id="mat-unit"><option>ชิ้น</option><option>kg</option><option>เส้น</option><option>แผ่น</option><option>ม้วน</option></select>
         </div>
-        <div class="fg"><label>% ผ่าน QC</label><input id="mat-qcpct" type="number" placeholder="100" min="0" max="100"></div>
-        <div class="fg"><label>หมายเหตุ</label><input id="mat-note" type="text" placeholder=""></div>
+        <div class="fg"><label>จำนวนที่ผ่าน QC</label><input id="mat-qcpct" type="number" placeholder="100" min="0" max="100"></div>
+        <div class="fg"><label>หมายเหตุ</label><input id="mat-note" type="text" placeholder="รายละเอียดเพิ่มเติม"></div>
       </div>
       <button class="btn-s" onclick="submitMat()">+ บันทึกรับวัตถุดิบ</button>
     </div>
     <div class="card"><div class="ct">ประวัติรับวัตถุดิบ</div>
       <div class="tw">
         <table>
-          <thead><tr><th>วันที่</th><th>วัตถุดิบ</th><th>รหัส</th><th>ผู้ขาย</th><th>จำนวน</th><th>% QC</th><th>หมายเหตุ</th><th>จัดการ</th></tr></thead>
+          <thead><tr><th>วันที่</th><th>วัตถุดิบ</th><th>รหัส</th><th>ผู้ขาย</th><th>จำนวน</th><th>จำนวนที่่ผ่าน QC</th><th>หมายเหตุ</th><th>จัดการ</th></tr></thead>
           <tbody id="mat-tbody"></tbody>
         </table>
       </div>
@@ -1031,27 +1031,27 @@ tr:hover td{background:rgba(255,255,255,.02)}
   <div id="pg-prod" class="page">
     <div class="pt">Production</div>
     <div class="g2" style="margin-bottom:14px">
-      <div class="kc"><div class="kl">แผนวันนี้ (Item)</div><div class="kv" style="color:var(--ac2)" id="prod-today-plan">—</div></div>
-      <div class="kc"><div class="kl">ผลิตได้จริงวันนี้</div><div class="kv" style="color:#6ee7b7" id="prod-today-actual">—</div></div>
+      <div class="kc"><div class="kl">Plan (items)</div><div class="kv" style="color:var(--ac2)" id="prod-today-plan">—</div></div>
+      <div class="kc"><div class="kl">Actual (items)</div><div class="kv" style="color:#6ee7b7" id="prod-today-actual">—</div></div>
     </div>
     <div class="card">
-      <div class="info-box">บันทึกทีละ Item — วันนี้ผลิตอะไร โครงการอะไร แปลงอะไร ได้กี่ชิ้น</div>
+      <div class="info-box">บันทึกแผนผลิตงาน (รายวัน)</div>
       <div class="fgrid">
         <div class="fg"><label>วันที่ *</label><input id="pi-date" type="date"></div>
         <div class="fg"><label>กำลังคน (คน)</label><input id="pi-manpower" type="number" placeholder="10" min="0"></div>
-        <div class="fg"><label>Item / รายการผลิต *</label><input id="pi-item" type="text" placeholder="เช่น ราวบันได, ระเบียง, ประตู"></div>
+        <div class="fg"><label>ประเภทงาน *</label><input id="pi-item" type="text" placeholder="เช่น ราวบันได, ระเบียง, ประตู"></div>
         <div class="fg"><label>โครงการ</label><input id="pi-project" type="text" placeholder="ชื่อโครงการ"></div>
-        <div class="fg"><label>แบบบ้าน</label><input id="pi-house" type="text" placeholder="Type A / S340"></div>
-        <div class="fg"><label>แปลงที่</label><input id="pi-plot" type="text" placeholder="เช่น A101"></div>
-        <div class="fg"><label>แผน (ชิ้น)</label><input id="pi-planned" type="number" placeholder="5" min="0"></div>
-        <div class="fg"><label>ผลิตจริง (ชิ้น)</label><input id="pi-actual" type="number" placeholder="4" min="0"></div>
+        <div class="fg"><label>แบบบ้าน</label><input id="pi-house" type="text" placeholder="ชื่อแบบบ้าน"></div>
+        <div class="fg"><label>แปลง</label><input id="pi-plot" type="text" placeholder="เช่น 62"></div>
+        <div class="fg"><label>Plan (items)</label><input id="pi-planned" type="number" placeholder="5" min="0"></div>
+        <div class="fg"><label>Actual (items)</label><input id="pi-actual" type="number" placeholder="4" min="0"></div>
         <div class="fg full"><label>ปัญหาที่พบ (Morning Talk)</label><textarea id="pi-issues" placeholder="รายงานปัญหาที่พบ"></textarea></div>
         <div class="fg full"><label>แผนแก้ไข / Action</label><textarea id="pi-action" placeholder="แนวทางและแผนแก้ไข"></textarea></div>
       </div>
       <button class="btn-s" onclick="submitProdItem()">+ บันทึก Production</button>
     </div>
     <div class="card"><div class="ct">รายการผลิตทั้งหมด</div>
-      <div class="tw"><table><thead><tr><th>วันที่</th><th>แผนก</th><th>Item</th><th>โครงการ</th><th>แบบบ้าน</th><th>แปลง</th><th>แผน</th><th>จริง</th><th>คน</th><th>ปัญหา</th><th>จัดการ</th></tr></thead><tbody id="prod-tbody"></tbody></table></div>
+      <div class="tw"><table><thead><tr><th>วันที่</th><th>แผนก</th><th>ประเภทงาน</th><th>โครงการ</th><th>แบบบ้าน</th><th>แปลง</th><th>Plan</th><th>Actual</th><th>กำลังคน</th><th>ปัญหา</th><th>จัดการ</th></tr></thead><tbody id="prod-tbody"></tbody></table></div>
     </div>
   </div>
 
@@ -1061,19 +1061,19 @@ tr:hover td{background:rgba(255,255,255,.02)}
     <div class="card">
       <div class="fgrid">
         <div class="fg"><label>วันที่ *</label><input id="cnc-date" type="date"></div>
-        <div class="fg"><label>Part / รหัส *</label><input id="cnc-part" type="text" placeholder="เช่น P-S340-001"></div>
+        <div class="fg"><label>ชื่อ Part *</label><input id="cnc-part" type="text" placeholder="เช่น ก้ามปู"></div>
         <div class="fg"><label>เครื่องจักร</label><input id="cnc-machine" type="text" placeholder="ชื่อเครื่อง CNC"></div>
         <div class="fg"><label>โครงการ</label><input id="cnc-project" type="text" placeholder="ชื่อโครงการ"></div>
-        <div class="fg"><label>แบบบ้าน / Type</label><input id="cnc-house" type="text" placeholder="Type A"></div>
-        <div class="fg"><label>วัสดุดิบที่ใช้</label><input id="cnc-material" type="text" placeholder="เช่น อลูมิเนียม 6061"></div>
-        <div class="fg"><label>เป้าหมาย (ชิ้น)</label><input id="cnc-planned" type="number" placeholder="50" min="0"></div>
-        <div class="fg"><label>ผลิตจริง (ชิ้น)</label><input id="cnc-actual" type="number" placeholder="48" min="0"></div>
+        <div class="fg"><label>แบบบ้าน</label><input id="cnc-house" type="text" placeholder="เช่น S380B"></div>
+        <div class="fg"><label>วัสดุดิบที่ใช้</label><input id="cnc-material" type="text" placeholder="เช่น เหล็กแผ่นหนา 3 mm."></div>
+        <div class="fg"><label>Plan (ชิ้น)</label><input id="cnc-planned" type="number" placeholder="50" min="0"></div>
+        <div class="fg"><label>Actual (ชิ้น)</label><input id="cnc-actual" type="number" placeholder="48" min="0"></div>
         <div class="fg full"><label>หมายเหตุ</label><input id="cnc-note" type="text" placeholder="หมายเหตุ / ปัญหาที่พบ"></div>
       </div>
       <button class="btn-s" onclick="submitCNC()">+ บันทึก CNC</button>
     </div>
     <div class="card"><div class="ct">รายการ CNC ทั้งหมด</div>
-      <div class="tw"><table><thead><tr><th>วันที่</th><th>Part/รหัส</th><th>เครื่อง</th><th>โครงการ</th><th>แบบบ้าน</th><th>แผน</th><th>จริง</th><th>%</th><th>วัสดุ</th><th>หมายเหตุ</th><th>จัดการ</th></tr></thead><tbody id="cnc-tbody"></tbody></table></div>
+      <div class="tw"><table><thead><tr><th>วันที่</th><th>ชื่อ Part</th><th>เครื่อง</th><th>โครงการ</th><th>แบบบ้าน</th><th>Plan</th><th>Actual</th><th>%</th><th>วัสดุ</th><th>หมายเหตุ</th><th>จัดการ</th></tr></thead><tbody id="cnc-tbody"></tbody></table></div>
     </div>
   </div>
 
